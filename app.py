@@ -11,7 +11,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Configuración de la conexión a MongoDB Atlas adwada
+# Configuración de la conexión a MongoDB Atlas adwada agregado de algo
 MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI)
 db = client.veterinaria  # Base de datos 'veterinaria'
