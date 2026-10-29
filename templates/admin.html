@@ -79,11 +79,16 @@
                         <label class="form-label fw-bold">Buscar por síntoma o diagnóstico:</label>
                         <div class="input-group">
                             <input type="text" id="inputBusquedaHistorial" class="form-control"
-                                placeholder="Ej. vómito, otitis, esguince...">
-                            <button class="btn btn-outline-success" type="button">Buscar</button>
+                                placeholder="Ej. vómito, otitis, esguince..." oninput="buscarHistorialEnTiempoReal()">
+                            <button class="btn btn-outline-success" type="button"
+                                onclick="buscarHistorialEnTiempoReal()">
+                                <i class="bi bi-search"></i>
+                            </button>
                         </div>
                     </div>
-                    <div id="resultadosHistorial" class="row"></div>
+                    <div id="resultadosHistorial" class="row g-3">
+                        <!-- Las tarjetas del historial se cargarán aquí -->
+                    </div>
                 </div>
 
                 <!-- 3. SECCIÓN DE DUEÑOS Y MASCOTAS -->
@@ -193,6 +198,7 @@
     <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
     <script src="{{ url_for('static', filename='js/servicios.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pacientes.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/historial.js') }}"></script>
 </body>
 
 </html>

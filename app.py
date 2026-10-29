@@ -125,41 +125,7 @@ def cancelar_cita(id_cita):
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-
-
-# ==========================================
-# 5. RUTAS DE HISTORIAL CLÍNICO (Colección independiente)
-# ==========================================
-
-# Búsqueda de pacientes por síntoma o diagnóstico (Requisito R)
-@app.route('/api/historial/buscar', methods=['GET'])
-def buscar_historial():
-    try:
-        query_busqueda = request.args.get('q', '')
-        
-        if not query_busqueda:
-            return jsonify({"success": True, "data": []}), 200
-
-        # Buscamos en la colección independiente 'historial' usando regex
-        resultados = list(db.historial.find({
-            "$or": [
-                {"sintomas": {"$regex": query_busqueda, "$options": "i"}},
-                {"diagnostico": {"$regex": query_busqueda, "$options": "i"}},
-                {"motivoConsulta": {"$regex": query_busqueda, "$options": "i"}}
-            ]
-        }))
-
-        for r in resultados:
-            r['_id'] = str(r['_id'])
-            r['mascotaId'] = str(r.get('mascotaId', ''))
-            r['usuarioId'] = str(r.get('usuarioId', ''))
-
-        return jsonify({"success": True, "data": resultados}), 200
-
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
+    
 # Agregar nueva consulta al historial (Requisito U)
 @app.route('/api/historial/agregar/<mascota_id>', methods=['POST'])
 def agregar_entrada_historial(mascota_id):
@@ -193,6 +159,52 @@ def agregar_entrada_historial(mascota_id):
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ==========================================
+# Apartado de administración del historial clínico
+# ==========================================
+
+# Búsqueda de pacientes por síntoma o diagnóstico (Requisito R)
+@app.route('/api/historial/buscar', methods=['GET'])
+def buscar_historial():
+    try:
+        termino = request.args.get('termino', '').strip()
+        
+        # Si hay un término de búsqueda, filtramos por síntomas o diagnósticos; si no, traemos todos
+        filtro = {}
+        if termino:
+            filtro = {
+                "$or": [
+                    {"sintomas": {"$regex": termino, "$options": "i"}},
+                    {"diagnostico": {"$regex": termino, "$options": "i"}}
+                ]
+            }
+
+        # Buscamos en la colección de historiales
+        historiales = list(db.historial.find(filtro))
+        resultado_final = []
+
+        for h in historiales:
+            # Opcional: podemos buscar información extra de la mascota o el servicio si lo requieres
+            mascota = db.mascotas.find_one({"_id": h.get("mascotaId")})
+            mascota_nombre = mascota["nombre"] if mascota else "Mascota general"
+
+            resultado_final.append({
+                "_id": str(h["_id"]),
+                "fecha": h.get("fecha", "").strftime("%Y-%m-%d %H:%M") if hasattr(h.get("fecha"), "strftime") else str(h.get("fecha", "")),
+                "sintomas": h.get("sintomas", "Sin síntomas especificados"),
+                "diagnostico": h.get("diagnostico", "Sin diagnóstico"),
+                "tratamiento": h.get("tratamiento", "Sin tratamiento"),
+                "mascota_nombre": mascota_nombre,
+                "costo": h.get("costo", 0)
+            })
+
+        return jsonify({"success": True, "data": resultado_final}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 
 # ==========================================
 # Apartado de administración de pacientes y tutores
