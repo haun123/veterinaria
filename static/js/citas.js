@@ -230,27 +230,35 @@ async function guardarNuevaMascotaRapida() {
         tutor_id: tutorIdSeleccionado,
         nombre: document.getElementById('nuevaMascotaNombre').value,
         categoria_id: document.getElementById('selectCategoriaMascotaModal').value,
-        raza: document.getElementById('nuevaMascotaRaza').value,
         sexo: document.getElementById('nuevaMascotaSexo').value,
-        peso: parseFloat(document.getElementById('nuevaMascotaPeso').value) || 0
+        raza: document.getElementById('nuevaMascotaRaza').value,
+        color: document.getElementById('nuevaMascotaColor').value
     };
 
-    if (!datos.nombre || !datos.categoria_id) {
-        alert("Complete el nombre y la especie de la mascota.");
+    if (!datos.nombre || !datos.categoria_id || !datos.sexo) {
+        alert("Por favor complete los campos obligatorios: Nombre, Especie y Sexo.");
         return;
     }
 
     try {
-        // Aquí conectamos con tu lógica de guardado de mascota en backend si ya la tienes creada,
-        // o aseguramos el POST correspondiente.
-        alert("Mascota lista para ser guardada en la base de datos para el tutor ID: " + tutorIdSeleccionado);
-        
-        const modalEl = document.getElementById('modalNuevaMascotaModal');
-        const modalInstance = bootstrap.Modal.getInstance(modalEl);
-        if (modalInstance) modalInstance.hide();
-        document.getElementById('formNuevaMascotaModal').reset();
-        
-        prepararNuevaCita();
+        const response = await fetch('/api/mascotas/registrar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(datos)
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            const modalEl = document.getElementById('modalNuevaMascotaModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+            document.getElementById('formNuevaMascotaModal').reset();
+            
+            prepararNuevaCita(); // Recarga los selectores para reflejar la nueva mascota
+            alert("Mascota registrada y asociada con éxito.");
+        } else {
+            alert("Error al registrar mascota: " + result.error);
+        }
     } catch (error) {
         console.error("Error guardando mascota rápida:", error);
     }

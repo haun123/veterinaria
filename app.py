@@ -84,6 +84,55 @@ def registrar_tutor():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+@app.route('/api/mascotas/registrar', methods=['POST'])
+def registrar_mascota():
+    try:
+        data = request.json
+        ahora = datetime.utcnow()
+        
+        # Validar campos mínimos obligatorios
+        if not data.get("nombre") or not data.get("tutor_id") or not data.get("categoria_id"):
+            return jsonify({"success": False, "error": "Faltan campos obligatorios (nombre, tutor o categoría)"}), 400
+
+        # Fecha de nacimiento opcional
+        fecha_nac = datetime.utcnow()
+        if data.get("fecha_nacimiento"):
+            try:
+                fecha_nac = datetime.strptime(data.get("fecha_nacimiento"), "%Y-%m-%d")
+            except:
+                pass
+
+        # Alergias opcionales (si vienen, se separan por comas; si no, lista vacía)
+        alergias_raw = data.get("alergias", "")
+        alergias_list = [a.strip() for a in alergias_raw.split(",") if a.strip()] if alergias_raw else []
+
+        mascota_doc = {
+            "nombre": data.get("nombre"),
+            "tutorId": ObjectId(data.get("tutor_id")),
+            "categoriaId": ObjectId(data.get("categoria_id")),
+            "raza": data.get("raza", "").strip() or "No especificada",
+            "sexo": data.get("sexo", "macho"),
+            "fechaNacimiento": fecha_nac,
+            "color": data.get("color", "").strip() or "No especificado",
+            "pesoActualKg": float(data.get("peso") or 0),
+            "esterilizada": bool(data.get("esterilizada", False)),
+            "alergias": alergias_list,
+            "activa": True,
+            "creadoEn": ahora
+        }
+        
+        mascota_id = db.mascotas.insert_one(mascota_doc).inserted_id
+
+        return jsonify({
+            "success": True, 
+            "message": "Mascota registrada con éxito",
+            "mascota_id": str(mascota_id)
+        }), 201
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # Registrar Tutor + Primera Mascota (Requisito C)
 @app.route('/api/pacientes/registrar', methods=['POST'])
 def registrar_paciente_completo():

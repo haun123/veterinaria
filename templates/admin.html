@@ -218,32 +218,32 @@
                             <div class="modal-body">
                                 <form id="formNuevaMascotaModal">
                                     <div class="mb-3">
-                                        <label class="form-label">Nombre de la Mascota</label>
-                                        <input type="text" id="nuevaMascotaNombre" class="form-control" required>
+                                        <label class="form-label">Nombre de la Mascota *</label>
+                                        <input type="text" id="nuevaMascotaNombre" class="form-control" required
+                                            placeholder="Ej. Max">
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">Especie (Categoría)</label>
+                                        <label class="form-label">Especie (Categoría) *</label>
                                         <select id="selectCategoriaMascotaModal" class="form-select" required>
                                             <option value="">Cargando categorías...</option>
                                         </select>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="form-label">Raza</label>
-                                        <input type="text" id="nuevaMascotaRaza" class="form-control">
+                                        <label class="form-label">Sexo *</label>
+                                        <select id="nuevaMascotaSexo" class="form-select" required>
+                                            <option value="macho">Macho</option>
+                                            <option value="hembra">Hembra</option>
+                                        </select>
                                     </div>
-                                    <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <label class="form-label">Sexo</label>
-                                            <select id="nuevaMascotaSexo" class="form-select">
-                                                <option value="macho">Macho</option>
-                                                <option value="hembra">Hembra</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Peso (kg)</label>
-                                            <input type="number" step="0.1" id="nuevaMascotaPeso" class="form-control"
-                                                value="0">
-                                        </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Raza (Opcional)</label>
+                                        <input type="text" id="nuevaMascotaRaza" class="form-control"
+                                            placeholder="Ej. Labrador o Mestizo">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Color (Opcional)</label>
+                                        <input type="text" id="nuevaMascotaColor" class="form-control"
+                                            placeholder="Ej. Dorado">
                                     </div>
                                 </form>
                             </div>
