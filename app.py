@@ -194,6 +194,48 @@ def agregar_entrada_historial(mascota_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+# ==========================================
+# Apartado de administración de pacientes y tutores
+# ==========================================
+
+@app.route('/api/pacientes/listar', methods=['GET'])
+def listar_pacientes():
+    try:
+        tutores = list(db.tutores.find({"activo": True}))
+        resultado_final = []
+
+        for tutor in tutores:
+            tutor_id_str = str(tutor["_id"])
+            # Buscamos las mascotas asociadas a este tutor mediante ObjectId
+            mascotas = list(db.mascotas.find({"tutorId": tutor["_id"], "activa": True}))
+            
+            mascotas_formateadas = []
+            for m in mascotas:
+                # Buscamos el nombre de la especie/categoría si está vinculada
+                cat = db.categorias.find_one({"_id": m.get("categoriaId")})
+                especie_nombre = cat["especie"] if cat else "General"
+                
+                mascotas_formateadas.append({
+                    "_id": str(m["_id"]),
+                    "nombre": m.get("nombre"),
+                    "especie": especie_nombre,
+                    "raza": m.get("raza", ""),
+                    "sexo": m.get("sexo", "desconocido"),
+                    "peso": m.get("pesoActualKg", 0)
+                })
+
+            resultado_final.append({
+                "_id": tutor_id_str,
+                "nombre_completo": f"{tutor.get('nombre', '')} {tutor.get('apellidos', '')}",
+                "telefono": tutor.get("telefono", ""),
+                "email": tutor.get("email", "Sin correo"),
+                "mascotas": mascotas_formateadas
+            })
+
+        return jsonify({"success": True, "data": resultado_final}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 # ==========================================
 # Apartado de administración de servicios
