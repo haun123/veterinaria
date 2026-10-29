@@ -94,17 +94,134 @@ def registrar_paciente_completo():
 # ==========================================
 # 4. RUTAS DE CITAS Y AGENDA
 # ==========================================
+
+@app.route('/api/citas/crear', methods=['POST'])
+def crear_cita_mostrador():
+    try:
+        data = request.json
+        ahora = datetime.utcnow()
+
+        # 1. Gestionar Tutor (Buscar si ya existe por teléfono o crearlo)
+        telefono = data.get("tutor_telefono")
+        tutor = db.tutores.find_one({"telefono": telefono})
+        
+        if tutor:
+            tutor_id = tutor["_id"]
+            tutor_nombre_completo = f"{tutor.get('nombre', '')} {tutor.get('apellidos', '')}".strip()
+        else:
+            # Crear nuevo tutor con la estructura exacta
+            tutor_nuevo = {
+                "nombre": data.get("tutor_nombre"),
+                "apellidos": data.get("tutor_apellidos", ""),
+                "telefono": telefono,
+                "email": data.get("tutor_email", ""),
+                "activo": True,
+                "creadoEn": ahora
+            }
+            tutor_id = db.tutores.insert_one(tutor_nuevo).inserted_id
+            tutor_nombre_completo = f"{data.get('tutor_nombre')} {data.get('tutor_apellidos', '')}".strip()
+
+        # 2. Registrar la Mascota asociada al tutor
+        categoria_id = data.get("categoria_id")
+        if categoria_id and not isinstance(categoria_id, ObjectId):
+            categoria_id = ObjectId(categoria_id)
+
+        alergias_raw = data.get("mascota_alergias", "")
+        alergias_list = [a.strip() for a in alergias_raw.split(",")] if alergias_raw else []
+
+        mascota_doc = {
+            "nombre": data.get("mascota_nombre"),
+            "tutorId": tutor_id,
+            "categoriaId": categoria_id,
+            "raza": data.get("mascota_raza", ""),
+            "sexo": data.get("mascota_sexo", "macho"),
+            "color": data.get("mascota_color", ""),
+            "pesoActualKg": float(data.get("mascota_peso", 0)),
+            "alergias": alergias_list,
+            "activa": True,
+            "creadoEn": ahora
+        }
+        mascota_id = db.mascotas.insert_one(mascota_doc).inserted_id
+        mascota_nombre = data.get("mascota_nombre")
+
+        # 3. Obtener el servicio seleccionado para extraer su nombre
+        servicio_id = data.get("servicio_id")
+        servicio_nombre = "Consulta general"
+        if servicio_id:
+            if not isinstance(servicio_id, ObjectId):
+                servicio_id = ObjectId(servicio_id)
+            servicio = db.servicios.find_one({"_id": servicio_id})
+            if servicio:
+                servicio_nombre = servicio.get("nombre", "Consulta")
+
+        # 4. Crear la Cita con la estructura exacta que especificaste
+        cita_doc = {
+            "mascotaId": mascota_id,
+            "tutorId": tutor_id,
+            "usuarioId": ObjectId('6ae22182f2102fe7ce813716'), # ID de usuario por defecto del sistema o sesión
+            "servicioId": servicio_id,
+            "mascotaNombre": mascota_nombre,
+            "tutorNombre": tutor_nombre_completo,
+            "servicioNombre": servicio_nombre,
+            "fechaInicio": ahora,
+            "fechaFin": ahora, # Se puede ajustar según la duración del servicio
+            "motivo": data.get("motivo", "Consulta en mostrador"),
+            "estado": "pendiente", # Queda lista en la agenda para ser atendida
+            "creadoEn": ahora
+        }
+        
+        db.citas.insert_one(cita_doc)
+
+        return jsonify({"success": True, "message": "Cita registrada con éxito en mostrador"}), 201
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+
 @app.route('/api/citas', methods=['GET'])
 def obtener_citas():
     try:
         citas = list(db.citas.find({}))
+        resultado_final = []
+        
         for c in citas:
-            c['_id'] = str(c['_id'])
-            c['tutorId'] = str(c.get('tutorId', ''))
-            c['mascotaId'] = str(c.get('mascotaId', ''))
-            c['usuarioId'] = str(c.get('usuarioId', ''))
-            c['servicioId'] = str(c.get('servicioId', ''))
-        return jsonify({"success": True, "data": citas}), 200
+            # 1. Obtener nombre del tutor (si ya viene plano o buscarlo)
+            tutor_nombre = c.get('tutorNombre')
+            tutor_telefono = 'Sin teléfono'
+            
+            # Siempre consultamos la colección tutores usando tutorId para asegurar el teléfono actualizado
+            if c.get('tutorId'):
+                tutor = db.tutores.find_one({"_id": c.get('tutorId')})
+                if tutor:
+                    if not tutor_nombre:
+                        tutor_nombre = f"{tutor.get('nombre', '')} {tutor.get('apellidos', '')}".strip()
+                    tutor_telefono = tutor.get('telefono', 'Sin teléfono')
+
+            # 2. Mascota
+            mascota_nombre = c.get('mascotaNombre')
+            if not mascota_nombre and c.get('mascotaId'):
+                mascota = db.mascotas.find_one({"_id": c.get('mascotaId')})
+                if mascota:
+                    mascota_nombre = mascota.get('nombre', '')
+
+            # 3. Servicio
+            servicio_nombre = c.get('servicioNombre')
+            if not servicio_nombre and c.get('servicioId'):
+                servicio = db.servicios.find_one({"_id": c.get('servicioId')})
+                if servicio:
+                    servicio_nombre = servicio.get('nombre', '')
+
+            resultado_final.append({
+                "_id": str(c.get('_id')),
+                "tutor_nombre": tutor_nombre or "Cliente general",
+                "tutor_telefono": tutor_telefono,
+                "mascota_nombre": mascota_nombre or "Mascota",
+                "servicio_nombre": servicio_nombre or c.get('motivo', 'Consulta'),
+                "motivo": c.get('motivo', ''),
+                "estado": c.get('estado', 'pendiente').lower()
+            })
+
+        return jsonify({"success": True, "data": resultado_final}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
