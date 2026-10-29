@@ -1,218 +1,195 @@
-
 import os
-from datetime import datetime
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, request, jsonify
 from pymongo import MongoClient
-from bson import ObjectId
+from bson.objectid import ObjectId
+from datetime import datetime
 from dotenv import load_dotenv
 
-# Cargar variables de entorno
+# Carga las variables de entorno desde el archivo .env
 load_dotenv()
 
 app = Flask(__name__)
 
-# Configuración de la conexión a MongoDB Atlas
-MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI)
-db = client.veterinaria  # Base de datos 'veterinaria'
-
-@app.route("/")
-def vista_tutor():
-    return render_template("tutor.html")
-
-# Ruta independiente para el panel del médico / administrador
-@app.route("/admin")
-def vista_admin():
-    return render_template("admin.html")
+# Conexión a MongoDB Atlas usando tu variable de entorno
+mongo_uri = os.getenv("MONGO_URI")
+client = MongoClient(mongo_uri)
+db = client["veterinaria"]  
 
 # ==========================================
-# ENDPOINTS - VISTA DE USUARIO
+# 1. RUTAS DE SERVICIOS (Catálogo)
 # ==========================================
-
-# 1. Obtener catálogo de servicios activos
-@app.route("/api/servicios", methods=["GET"])
-def get_servicios():
+@app.route('/api/servicios', methods=['GET'])
+def obtener_servicios():
     try:
-        servicios_cursor = db.servicios.find({"activo": True})
-        servicios = []
-        for s in servicios_cursor:
-            s["_id"] = str(s["_id"])
-            servicios.append(s)
+        servicios = list(db.servicios.find({"activo": True}))
+        for s in servicios:
+            s['_id'] = str(s['_id'])
         return jsonify({"success": True, "data": servicios}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-# 2. Obtener las mascotas de un tutor específico
-@app.route("/api/tutores/<tutor_id>/mascotas", methods=["GET"])
-def get_mascotas_tutor(tutor_id):
+
+# ==========================================
+# 2. RUTAS DE CATEGORÍAS (Especies y Razas)
+# ==========================================
+@app.route('/api/categorias', methods=['GET'])
+def obtener_categorias():
     try:
-        mascotas_cursor = db.mascotas.find({"tutorId": ObjectId(tutor_id), "activa": True})
-        mascotas = []
-        for m in mascotas_cursor:
-            m["_id"] = str(m["_id"])
-            m["tutorId"] = str(m["tutorId"])
-            m["categoriaId"] = str(m["categoriaId"])
-            mascotas.append(m)
-        return jsonify({"success": True, "data": mascotas}), 200
+        categorias = list(db.categorias.find({"activa": True}))
+        for c in categorias:
+            c['_id'] = str(c['_id'])
+        return jsonify({"success": True, "data": categorias}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-# 3. Crear una nueva cita médica
-@app.route("/api/citas", methods=["POST"])
-def crear_cita():
+
+# ==========================================
+# 3. RUTAS DE PACIENTES / TUTORES Y MASCOTAS
+# ==========================================
+
+# Registrar Tutor + Primera Mascota (Requisito C)
+@app.route('/api/pacientes/registrar', methods=['POST'])
+def registrar_paciente_completo():
     try:
-        data = request.get_json()
-        fecha_raw = data.get("fechaInicio")
+        data =reira = request.json
+        ahora = datetime.utcnow()
         
-        # Procesar la fecha de forma segura para evitar errores de datetime
-        if isinstance(fecha_raw, str):
-            # Limpiar la cadena ISO o formato de fecha recibido
-            fecha_dt = datetime.fromisoformat(fecha_raw.replace('Z', '+00:00'))
-        else:
-            fecha_dt = datetime.utcnow()
+        # 1. Insertar Tutor
+        tutor_id = db.tutores.insert_one({
+            "nombre": data.get("tutor_nombre"),
+            "apellidos": data.get("tutor_apellidos", ""),
+            "telefono": data.get("tutor_telefono"),
+            "email": data.get("tutor_email", ""),
+            "activo": True,
+            "creadoEn": ahora
+        }).inserted_id
 
+        # 2. Insertar Mascota enlazada al Tutor y a Categoría
+        mascota_id = db.mascotas.insert_one({
+            "nombre": data.get("mascota_nombre"),
+            "tutorId": tutor_id,
+            "categoriaId": ObjectId(data.get("categoria_id")),
+            "raza": data.get("mascota_raza", ""),
+            "sexo": data.get("mascota_sexo", "desconocido"),
+            "pesoActualKg": float(data.get("peso_actual", 0)),
+            "activa": True,
+            "creadoEn": ahora
+        }).inserted_id
 
-        nueva_cita = {
-            "mascotaId": ObjectId(data.get("mascotaId")),
-            "tutorId": ObjectId(data.get("tutorId")),
-            "usuarioId": ObjectId(data.get("usuarioId")),
-            "servicioId": ObjectId(data.get("servicioId")),
-            "mascotaNombre": data.get("mascotaNombre"),
-            "tutorNombre": data.get("tutorNombre"),
-            "servicioNombre": data.get("servicioNombre"),
-            "fechaInicio": fecha_dt,  # Guardado como datetime válido"
-            "motivo": data.get("motivo"),
-            "estado": "programada",
-            "creadoEn": datetime.utcnow()
-        }
-        
-        db.citas.insert_one(nueva_cita)
-        return jsonify({"success": True, "mensaje": "Cita agendada con éxito"}), 201
+        return jsonify({
+            "success": True, 
+            "message": "Tutor y mascota registrados con éxito",
+            "tutor_id": str(tutor_id),
+            "mascota_id": str(mascota_id)
+        }), 201
+
     except Exception as e:
-        print("Error en backend al agendar cita:", str(e))
         return jsonify({"success": False, "error": str(e)}), 500
 
-# 4. Listar citas de un usuario (para la sección de Citas Agendadas)
-@app.route("/api/citas/tutor/<tutor_id>", methods=["GET"])
-def get_citas_tutor(tutor_id):
+
+# ==========================================
+# 4. RUTAS DE CITAS Y AGENDA
+# ==========================================
+@app.route('/api/citas', methods=['GET'])
+def obtener_citas():
     try:
-        citas_cursor = db.citas.find({"tutorId": ObjectId(tutor_id)}).sort("fechaInicio", -1)
-        citas = []
-        for c in citas_cursor:
-            c["_id"] = str(c["_id"])
-            c["mascotaId"] = str(c["mascotaId"])
-            c["tutorId"] = str(c["tutorId"])
-            c["usuarioId"] = str(c["usuarioId"])
-            c["servicioId"] = str(c["servicioId"])
-            citas.append(c)
+        citas = list(db.citas.find({}))
+        for c in citas:
+            c['_id'] = str(c['_id'])
+            c['tutorId'] = str(c.get('tutorId', ''))
+            c['mascotaId'] = str(c.get('mascotaId', ''))
+            c['usuarioId'] = str(c.get('usuarioId', ''))
+            c['servicioId'] = str(c.get('servicioId', ''))
         return jsonify({"success": True, "data": citas}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-# 5. Cancelar una cita
-@app.route("/api/citas/<cita_id>/cancelar", methods=["PATCH"])
-def cancelar_cita(cita_id):
+
+# Cancelar Cita (Requisito D)
+@app.route('/api/citas/cancelar/<id_cita>', methods=['PUT'])
+def cancelar_cita(id_cita):
     try:
         resultado = db.citas.update_one(
-            {"_id": ObjectId(cita_id)},
-            {"$set": {"estado": "cancelada", "actualizadoEn": __import__('datetime').datetime.utcnow()}}
+            {"_id": ObjectId(id_cita)},
+            {"$set": {"estado": "cancelada", "actualizadoEn": datetime.utcnow()}}
         )
-        if resultado.modified_count > 0:
-            return jsonify({"success": True, "message": "Cita cancelada correctamente"}), 200
-        else:
-            return jsonify({"success": False, "message": "Cita no encontrada o ya estaba cancelada"}), 404
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
 
-# 6. Obtener el historial médico de las mascotas del tutor
-@app.route("/api/historial/tutor/<tutor_id>", methods=["GET"])
-def get_historial_tutor(tutor_id):
-    try:
-        # Primero buscamos las mascotas del tutor
-        mascotas_ids = [m["_id"] for m in db.mascotas.find({"tutorId": ObjectId(tutor_id)}, {"_id": 1})]
-        
-        # Luego buscamos todo el historial asociado a esas mascotas
-        historial_cursor = db.historial.find({"mascotaId": {"$in": mascotas_ids}}).sort("fecha", -1)
-        
-        historial = []
-        for h in historial_cursor:
-            h["_id"] = str(h["_id"])
-            h["mascotaId"] = str(h["mascotaId"])
-            h["usuarioId"] = str(h["usuarioId"])
-            if "citaId" in h and h["citaId"]:
-                h["citaId"] = str(h["citaId"])
-            historial.append(h)
-            
-        return jsonify({"success": True, "data": historial}), 200
+        if resultado.matched_count == 0:
+            return jsonify({"success": False, "error": "Cita no encontrada"}), 404
+
+        return jsonify({"success": True, "message": "Cita cancelada correctamente"}), 200
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 # ==========================================
-# ENDPOINTS - VISTA DE ADMINISTRADOR / MÉDICO   
+# 5. RUTAS DE HISTORIAL CLÍNICO (Colección independiente)
 # ==========================================
 
-
-# 1. Obtener TODAS las citas de la clínica (para el administrador)
-@app.route("/api/citas", methods=["GET"])
-def obtener_todas_citas():
+# Búsqueda de pacientes por síntoma o diagnóstico (Requisito R)
+@app.route('/api/historial/buscar', methods=['GET'])
+def buscar_historial():
     try:
-        citas = list(db.citas.find())
-        for c in citas:
-            c["_id"] = str(c["_id"])
-            c["mascotaId"] = str(c["mascotaId"])
-            c["tutorId"] = str(c["tutorId"])
-            c["usuarioId"] = str(c["usuarioId"])
-            c["servicioId"] = str(c["servicioId"])
-        return jsonify({"success": True, "data": citas}), 200
+        query_busqueda = request.args.get('q', '')
+        
+        if not query_busqueda:
+            return jsonify({"success": True, "data": []}), 200
+
+        # Buscamos en la colección independiente 'historial' usando regex
+        resultados = list(db.historial.find({
+            "$or": [
+                {"sintomas": {"$regex": query_busqueda, "$options": "i"}},
+                {"diagnostico": {"$regex": query_busqueda, "$options": "i"}},
+                {"motivoConsulta": {"$regex": query_busqueda, "$options": "i"}}
+            ]
+        }))
+
+        for r in resultados:
+            r['_id'] = str(r['_id'])
+            r['mascotaId'] = str(r.get('mascotaId', ''))
+            r['usuarioId'] = str(r.get('usuarioId', ''))
+
+        return jsonify({"success": True, "data": resultados}), 200
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-# 2. Actualizar el estado de una cita (Confirmar, Completar, Cancelar)
-@app.route("/api/citas/<id>/estado", methods=["PATCH"])
-def actualizar_estado_cita(id):
-    try:
-        data = request.get_json()
-        nuevo_estado = data.get("estado")
-        db.citas.update_one(
-            {"_id": ObjectId(id)},
-            {"$set": {"estado": nuevo_estado}}
-        )
-        return jsonify({"success": True, "mensaje": "Estado actualizado correctamente"}), 200
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
 
-# 3. Obtener TODAS las mascotas de la clínica (Directorio de Pacientes)
-@app.route("/api/mascotas", methods=["GET"])
-def obtener_todas_mascotas():
+# Agregar nueva consulta al historial (Requisito U)
+@app.route('/api/historial/agregar/<mascota_id>', methods=['POST'])
+def agregar_entrada_historial(mascota_id):
     try:
-        mascotas = list(db.mascotas.find())
-        for m in mascotas:
-            m["_id"] = str(m["_id"])
-            m["tutorId"] = str(m["tutorId"])
-        return jsonify({"success": True, "data": mascotas}), 200
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-# 4. Registrar una nueva mascota desde el panel de Admin
-@app.route("/api/mascotas", methods=["POST"])
-def registrar_mascota_admin():
-    try:
-        data = request.get_json()
-        nueva_mascota = {
-            "nombre": data.get("nombre"),
-            "especie": data.get("especie"),
-            "raza": data.get("raza"),
-            "edad": int(data.get("edad", 0)),
-            "pesoKg": float(data.get("pesoKg", 0)),
-            "sexo": data.get("sexo", "Desconocido"),
-            "tutorNombre": data.get("tutorNombre"),
-            "creadoEn": datetime.utcnow()
+        data = request.json
+        ahora = datetime.utcnow()
+        
+        nueva_entrada = {
+            "mascotaId": ObjectId(mascota_id),
+            "usuarioId": ObjectId(data.get("usuario_id")), # Veterinario responsable
+            "fecha": ahora,
+            "motivoConsulta": data.get("motivo_consulta"),
+            "signosVitales": {
+                "pesoKg": float(data.get("peso_kg", 0)),
+                "temperaturaC": float(data.get("temperatura_c", 0))
+            },
+            "sintomas": data.get("sintomas", []),
+            "diagnostico": data.get("diagnostico"),
+            "tratamientos": data.get("tratamientos", []),
+            "observaciones": data.get("observaciones", ""),
+            "creadoEn": ahora
         }
-        resultado = db.mascotas.insert_one(nueva_mascota)
-        return jsonify({"success": True, "id": str(resultado.inserted_id)}), 201
+
+        resultado_id = db.historial.insert_one(nueva_entrada).inserted_id
+
+        return jsonify({
+            "success": True, 
+            "message": "Entrada clínica agregada con éxito al historial",
+            "historial_id": str(resultado_id)
+        }, 201)
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     app.run(debug=True, port=5000)
