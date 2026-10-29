@@ -1,3 +1,5 @@
+let listaPacientesGlobalCitas = [];
+
 // Cargar las citas al iniciar la página
 document.addEventListener("DOMContentLoaded", () => {
     cargarCitas();
@@ -79,29 +81,40 @@ function atenderCita(id) {
 }
 
 // ==========================================
-// FUNCIONES PARA CREAR NUEVA CITA / MOSTRADOR
+// LÓGICA PARA EL MODAL DE SELECCIÓN Y MOSTRADOR
 // ==========================================
 
-// Cargar categorías y servicios al inicializar los selectores del modal de citas
+// Se ejecuta al hacer clic en "Nueva Cita / Reserva"
 async function prepararNuevaCita() {
-    const form = document.getElementById('formNuevaCita');
+    const form = document.getElementById('formSeleccionCita');
     if (form) form.reset();
     
     try {
-        // Cargar Categorías
-        const resCat = await fetch('/api/categorias');
-        const dataCat = await resCat.json();
-        const selectCat = document.getElementById('citaSelectCategoria');
-        if (selectCat) {
-            selectCat.innerHTML = '<option value="">Seleccione especie...</option>';
-            if (dataCat.success) {
-                dataCat.data.forEach(c => {
-                    selectCat.innerHTML += `<option value="${c._id}">${c.especie}</option>`;
+        // 1. Cargar tutores y sus mascotas desde la API de pacientes
+        const resPacientes = await fetch('/api/pacientes/listar');
+        const dataPacientes = await resPacientes.json();
+        
+        const selectTutor = document.getElementById('selectTutorCita');
+        const selectMascota = document.getElementById('selectMascotaCita');
+        
+        if (selectTutor) {
+            selectTutor.innerHTML = '<option value="">Seleccione un tutor...</option>';
+            if (dataPacientes.success) {
+                listaPacientesGlobalCitas = dataPacientes.data;
+                listaPacientesGlobalCitas.forEach(tutor => {
+                    selectTutor.innerHTML += `<option value="${tutor._id}">${tutor.nombre_completo} (Tel: ${tutor.telefono})</option>`;
                 });
             }
         }
 
-        // Cargar Servicios
+        if (selectMascota) {
+            selectMascota.innerHTML = '<option value="">Primero seleccione un tutor...</option>';
+            selectMascota.disabled = true;
+            const btnMascota = document.getElementById('btnAgregarMascotaModal');
+            if (btnMascota) btnMascota.disabled = true;
+        }
+
+        // 2. Cargar Servicios
         const resServ = await fetch('/api/servicios');
         const dataServ = await resServ.json();
         const selectServ = document.getElementById('citaSelectServicio');
@@ -113,53 +126,128 @@ async function prepararNuevaCita() {
                 });
             }
         }
+
+        // 3. Cargar Categorías para el sub-modal de mascota nueva
+        const resCat = await fetch('/api/categorias');
+        const dataCat = await resCat.json();
+        const selectCat = document.getElementById('selectCategoriaMascotaModal');
+        if (selectCat) {
+            selectCat.innerHTML = '<option value="">Seleccione especie...</option>';
+            if (dataCat.success) {
+                dataCat.data.forEach(c => {
+                    selectCat.innerHTML += `<option value="${c._id}">${c.especie}</option>`;
+                });
+            }
+        }
     } catch (error) {
         console.error("Error preparando selectores para nueva cita:", error);
     }
 }
 
-// Enviar el registro de la nueva cita al backend
-async function guardarNuevaCita() {
+// Cuando seleccionas un tutor, carga únicamente sus mascotas en el segundo select
+function cambiarTutorSeleccionado() {
+    const tutorId = document.getElementById('selectTutorCita').value;
+    const selectMascota = document.getElementById('selectMascotaCita');
+    const btnMascota = document.getElementById('btnAgregarMascotaModal');
+
+    selectMascota.innerHTML = '';
+    
+    if (!tutorId) {
+        selectMascota.innerHTML = '<option value="">Primero seleccione un tutor...</option>';
+        selectMascota.disabled = true;
+        if (btnMascota) btnMascota.disabled = true;
+        return;
+    }
+
+    const tutorEncontrado = listaPacientesGlobalCitas.find(t => t._id === tutorId);
+
+    if (tutorEncontrado && tutorEncontrado.mascotas && tutorEncontrado.mascotas.length > 0) {
+        selectMascota.innerHTML = '<option value="">Seleccione una mascota...</option>';
+        tutorEncontrado.mascotas.forEach(m => {
+            selectMascota.innerHTML += `<option value="${m._id}">${m.nombre} (${m.especie} - ${m.raza || 'Sin raza'})</option>`;
+        });
+        selectMascota.disabled = false;
+    } else {
+        selectMascota.innerHTML = '<option value="">Este tutor no tiene mascotas registradas</option>';
+        selectMascota.disabled = false;
+    }
+
+    if (btnMascota) btnMascota.disabled = false;
+}
+
+// Guardar nuevo tutor desde su sub-modal rápido
+async function guardarNuevoTutorRapido() {
     const datos = {
-        tutor_nombre: document.getElementById('citaTutorNombre').value,
-        tutor_apellidos: document.getElementById('citaTutorApellidos').value,
-        tutor_telefono: document.getElementById('citaTutorTelefono').value,
-        tutor_email: document.getElementById('citaTutorEmail').value,
-        mascota_nombre: document.getElementById('citaMascotaNombre').value,
-        categoria_id: document.getElementById('citaSelectCategoria').value,
-        mascota_raza: document.getElementById('citaMascotaRaza').value,
-        mascota_sexo: document.getElementById('citaMascotaSexo').value,
-        mascota_peso: parseFloat(document.getElementById('citaMascotaPeso').value) || 0,
-        mascota_color: document.getElementById('citaMascotaColor').value,
-        mascota_alergias: document.getElementById('citaMascotaAlergias').value,
-        servicio_id: document.getElementById('citaSelectServicio').value,
-        motivo: document.getElementById('citaMotivo').value
+        tutor_nombre: document.getElementById('nuevoTutorNombre').value,
+        tutor_apellidos: document.getElementById('nuevoTutorApellidos').value,
+        tutor_telefono: document.getElementById('nuevoTutorTelefono').value,
+        tutor_email: document.getElementById('nuevoTutorEmail').value,
+        mascota_nombre: "Temporal", // Requerido provisionalmente por la API de registro
+        categoria_id: "",
+        peso_actual: 0
     };
 
-    if (!datos.tutor_nombre || !datos.tutor_telefono || !datos.mascota_nombre || !datos.servicio_id) {
-        alert("Por favor completa los campos obligatorios del tutor, mascota y servicio.");
+    if (!datos.tutor_nombre || !datos.tutor_telefono) {
+        alert("Por favor complete nombre y teléfono del tutor.");
         return;
     }
 
     try {
-        const response = await fetch('/api/citas/crear', {
+        const response = await fetch('/api/pacientes/registrar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(datos)
         });
-
         const result = await response.json();
+
         if (result.success) {
-            // Cerrar modal y refrescar la tabla de citas
-            const modalEl = document.getElementById('modalNuevaCita');
+            const modalEl = document.getElementById('modalNuevoTutor');
             const modalInstance = bootstrap.Modal.getInstance(modalEl);
             if (modalInstance) modalInstance.hide();
+            document.getElementById('formNuevoTutor').reset();
 
-            cargarCitas(); // Recargar la tabla
+            prepararNuevaCita(); // Refrescar los selectores
+            alert("Tutor registrado con éxito.");
         } else {
-            alert("Error al registrar la cita: " + result.error);
+            alert("Error: " + result.error);
         }
     } catch (error) {
-        console.error("Error en la petición de nueva cita:", error);
+        console.error("Error guardando tutor rápido:", error);
+    }
+}
+
+// Guardar mascota nueva desde su sub-modal rápido
+async function guardarNuevaMascotaRapida() {
+    const tutorIdSeleccionado = document.getElementById('selectTutorCita').value;
+    if (!tutorIdSeleccionado) {
+        alert("Debe seleccionar un tutor primero.");
+        return;
+    }
+
+    const datos = {
+        tutor_id: tutorIdSeleccionado,
+        nombre: document.getElementById('nuevaMascotaNombre').value,
+        categoria_id: document.getElementById('selectCategoriaMascotaModal').value,
+        raza: document.getElementById('nuevaMascotaRaza').value,
+        sexo: document.getElementById('nuevaMascotaSexo').value,
+        peso: parseFloat(document.getElementById('nuevaMascotaPeso').value) || 0
+    };
+
+    if (!datos.nombre || !datos.categoria_id) {
+        alert("Complete el nombre y la especie de la mascota.");
+        return;
+    }
+
+    try {
+        alert("Mascota lista para asociar al tutor ID: " + tutorIdSeleccionado);
+        
+        const modalEl = document.getElementById('modalNuevaMascotaModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+        document.getElementById('formNuevaMascotaModal').reset();
+        
+        prepararNuevaCita(); // Refrescar selectores
+    } catch (error) {
+        console.error("Error guardando mascota rápida:", error);
     }
 }

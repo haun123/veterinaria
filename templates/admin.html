@@ -85,109 +85,157 @@
                     </div>
                 </div>
 
-                <!-- MODAL PARA NUEVA CITA / REGISTRO EN MOSTRADOR -->
+                <!-- MODAL PARA NUEVA CITA / MOSTRADOR -->
                 <div class="modal fade" id="modalNuevaCita" tabindex="-1">
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
                             <div class="modal-header bg-success text-white">
-                                <h5 class="modal-title">Registrar Cita / Atención en Mostrador</h5>
+                                <h5 class="modal-title">Seleccionar Tutor y Mascota</h5>
                                 <button type="button" class="btn-close btn-close-white"
                                     data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
-                                <form id="formNuevaCita">
-                                    <!-- SECCIÓN 1: TUTOR -->
-                                    <h6 class="text-success fw-bold mb-3"><i class="bi bi-person-fill me-1"></i> 1.
-                                        Información del Tutor</h6>
-                                    <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <label class="form-label">Nombre(s)</label>
-                                            <input type="text" id="citaTutorNombre" class="form-control" required
-                                                placeholder="Ej. Carlos">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Apellidos</label>
-                                            <input type="text" id="citaTutorApellidos" class="form-control" required
-                                                placeholder="Ej. Ramírez López">
-                                        </div>
-                                    </div>
-                                    <div class="row mb-4">
-                                        <div class="col-md-6">
-                                            <label class="form-label">Teléfono</label>
-                                            <input type="text" id="citaTutorTelefono" class="form-control" required
-                                                placeholder="9987654321">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Correo Electrónico</label>
-                                            <input type="email" id="citaTutorEmail" class="form-control"
-                                                placeholder="carlos@example.com">
-                                        </div>
-                                    </div>
+                                <form id="formSeleccionCita">
 
-                                    <hr>
+                                    <!-- SECCIÓN 1: TUTOR -->
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold text-success">
+                                            <i class="bi bi-person-fill me-1"></i> Seleccionar Tutor (Dueño)
+                                        </label>
+                                        <div class="input-group">
+                                            <select id="selectTutorCita" class="form-select"
+                                                onchange="cambiarTutorSeleccionado()">
+                                                <option value="">Cargando tutores...</option>
+                                            </select>
+                                            <button class="btn btn-outline-success" type="button" data-bs-toggle="modal"
+                                                data-bs-target="#modalNuevoTutor">
+                                                <i class="bi bi-person-plus-fill me-1"></i> Agregar Usuario
+                                            </button>
+                                        </div>
+                                    </div>
 
                                     <!-- SECCIÓN 2: MASCOTA -->
-                                    <h6 class="text-success fw-bold mb-3"><i class="bi bi-heart-fill me-1"></i> 2.
-                                        Información de la Mascota</h6>
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <label class="form-label">Nombre</label>
-                                            <input type="text" id="citaMascotaNombre" class="form-control" required
-                                                placeholder="Ej. Max">
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label">Especie (Categoría)</label>
-                                            <select id="citaSelectCategoria" class="form-select" required>
-                                                <option value="">Cargando...</option>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold text-success">
+                                            <i class="bi bi-heart-fill me-1"></i> 2. Seleccionar Mascota
+                                        </label>
+                                        <div class="input-group">
+                                            <select id="selectMascotaCita" class="form-select" disabled>
+                                                <option value="">Primero seleccione un tutor...</option>
                                             </select>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label">Raza</label>
-                                            <input type="text" id="citaMascotaRaza" class="form-control"
-                                                placeholder="Ej. Labrador">
-                                        </div>
-                                    </div>
-                                    <div class="row mb-4">
-                                        <div class="col-md-3">
-                                            <label class="form-label">Sexo</label>
-                                            <select id="citaMascotaSexo" class="form-select">
-                                                <option value="macho">Macho</option>
-                                                <option value="hembra">Hembra</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">Peso Actual (kg)</label>
-                                            <input type="number" step="0.1" id="citaMascotaPeso" class="form-control"
-                                                value="0">
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">Color</label>
-                                            <input type="text" id="citaMascotaColor" class="form-control"
-                                                placeholder="Ej. Dorado">
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">Alergias</label>
-                                            <input type="text" id="citaMascotaAlergias" class="form-control"
-                                                placeholder="Ej. Pollo">
+                                            <button class="btn btn-outline-success" type="button"
+                                                id="btnAgregarMascotaModal" data-bs-toggle="modal"
+                                                data-bs-target="#modalNuevaMascotaModal" disabled>
+                                                <i class="bi bi-plus-circle-fill me-1"></i> Agregar Mascota
+                                            </button>
                                         </div>
                                     </div>
 
                                     <hr>
 
                                     <!-- SECCIÓN 3: SERVICIO Y MOTIVO -->
-                                    <h6 class="text-success fw-bold mb-3"><i class="bi bi-calendar-check-fill me-1"></i>
-                                        3. Motivo y Servicio</h6>
                                     <div class="row">
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Seleccionar Servicio</label>
-                                            <select id="citaSelectServicio" class="form-select" required>
+                                            <label class="form-label fw-bold">Servicio</label>
+                                            <select id="citaSelectServicio" class="form-select">
                                                 <option value="">Cargando servicios...</option>
                                             </select>
                                         </div>
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label">Motivo de la Consulta</label>
-                                            <input type="text" id="citaMotivo" class="form-control" required
-                                                placeholder="Ej. Revisión general y vacuna anual">
+                                            <label class="form-label fw-bold">Motivo de la Consulta</label>
+                                            <input type="text" id="citaMotivo" class="form-control"
+                                                placeholder="Ej. Revisión general">
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                <button type="button" class="btn btn-custom"
+                                    onclick="alert('Selección lista (Aún no genera cita como solicitaste)')">Continuar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- SUB-MODAL: AGREGAR NUEVO TUTOR -->
+                <div class="modal fade" id="modalNuevoTutor" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">Registrar Nuevo Tutor</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="formNuevoTutor">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nombre(s)</label>
+                                        <input type="text" id="nuevoTutorNombre" class="form-control" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Apellidos</label>
+                                        <input type="text" id="nuevoTutorApellidos" class="form-control">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Teléfono</label>
+                                        <input type="text" id="nuevoTutorTelefono" class="form-control" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" id="nuevoTutorEmail" class="form-control">
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-custom" onclick="guardarNuevoTutorRapido()">Guardar
+                                    Tutor</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- SUB-MODAL: AGREGAR NUEVA MASCOTA -->
+                <div class="modal fade" id="modalNuevaMascotaModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">Registrar Nueva Mascota</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="formNuevaMascotaModal">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nombre de la Mascota</label>
+                                        <input type="text" id="nuevaMascotaNombre" class="form-control" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Especie (Categoría)</label>
+                                        <select id="selectCategoriaMascotaModal" class="form-select" required>
+                                            <option value="">Cargando categorías...</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Raza</label>
+                                        <input type="text" id="nuevaMascotaRaza" class="form-control">
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Sexo</label>
+                                            <select id="nuevaMascotaSexo" class="form-select">
+                                                <option value="macho">Macho</option>
+                                                <option value="hembra">Hembra</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Peso (kg)</label>
+                                            <input type="number" step="0.1" id="nuevaMascotaPeso" class="form-control"
+                                                value="0">
                                         </div>
                                     </div>
                                 </form>
@@ -195,8 +243,8 @@
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary"
                                     data-bs-dismiss="modal">Cancelar</button>
-                                <button type="button" class="btn btn-custom" onclick="guardarNuevaCita()">Generar
-                                    Cita</button>
+                                <button type="button" class="btn btn-custom"
+                                    onclick="guardarNuevaMascotaRapida()">Guardar Mascota</button>
                             </div>
                         </div>
                     </div>
