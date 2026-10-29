@@ -171,33 +171,58 @@ def buscar_historial():
     try:
         termino = request.args.get('termino', '').strip()
         
-        # Si hay un término de búsqueda, filtramos por síntomas o diagnósticos; si no, traemos todos
         filtro = {}
         if termino:
             filtro = {
                 "$or": [
                     {"sintomas": {"$regex": termino, "$options": "i"}},
-                    {"diagnostico": {"$regex": termino, "$options": "i"}}
+                    {"diagnostico": {"$regex": termino, "$options": "i"}},
+                    {"motivoConsulta": {"$regex": termino, "$options": "i"}}
                 ]
             }
 
-        # Buscamos en la colección de historiales
         historiales = list(db.historial.find(filtro))
         resultado_final = []
 
         for h in historiales:
-            # Opcional: podemos buscar información extra de la mascota o el servicio si lo requieres
+            # Buscar nombre de la mascota
             mascota = db.mascotas.find_one({"_id": h.get("mascotaId")})
             mascota_nombre = mascota["nombre"] if mascota else "Mascota general"
 
+            # Formatear fecha principal
+            fecha_consulta = h.get("fecha")
+            fecha_str = fecha_consulta.strftime("%Y-%m-%d") if hasattr(fecha_consulta, "strftime") else str(fecha_consulta)[:10]
+
+            # Formatear la lista de tratamientos (si existen)
+            tratamientos_formateados = []
+            for t in h.get("tratamientos", []):
+                tratamientos_formateados.append(
+                    f"{t.get('medicamento', '')} - {t.get('dosis', '')} ({t.get('frecuencia', '')}, por {t.get('duracionDias', '')} días)"
+                )
+
+            # Formatear síntomas (puede ser lista o texto)
+            sintomas_val = h.get("sintomas", [])
+            sintomas_str = ", ".join(sintomas_val) if isinstance(sintomas_val, list) else str(sintomas_val)
+
+            # Signos vitales
+            signos = h.get("signosVitales", {})
+
             resultado_final.append({
                 "_id": str(h["_id"]),
-                "fecha": h.get("fecha", "").strftime("%Y-%m-%d %H:%M") if hasattr(h.get("fecha"), "strftime") else str(h.get("fecha", "")),
-                "sintomas": h.get("sintomas", "Sin síntomas especificados"),
+                "fecha": fecha_str,
+                "motivo": h.get("motivoConsulta", "Consulta general"),
+                "sintomas": sintomas_str,
                 "diagnostico": h.get("diagnostico", "Sin diagnóstico"),
-                "tratamiento": h.get("tratamiento", "Sin tratamiento"),
+                "tratamientos": tratamientos_formateados,
+                "signos_vitales": {
+                    "peso": signos.get("pesoKg", 0),
+                    "temp": signos.get("temperaturaC", 0),
+                    "fc": signos.get("frecuenciaCardiaca", 0)
+                },
+                "observaciones": h.get("observaciones", ""),
+                "proxima_revision": str(h.get("proximaRevision", ""))[:10] if h.get("proximaRevision") else None,
                 "mascota_nombre": mascota_nombre,
-                "costo": h.get("costo", 0)
+                "costo": h.get("costo", 500) # Valor por defecto si no lo tiene en el documento
             })
 
         return jsonify({"success": True, "data": resultado_final}), 200
