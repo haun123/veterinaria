@@ -184,19 +184,16 @@ async function guardarNuevoTutorRapido() {
         tutor_nombre: document.getElementById('nuevoTutorNombre').value,
         tutor_apellidos: document.getElementById('nuevoTutorApellidos').value,
         tutor_telefono: document.getElementById('nuevoTutorTelefono').value,
-        tutor_email: document.getElementById('nuevoTutorEmail').value,
-        mascota_nombre: "Temporal", 
-        categoria_id: "",
-        peso_actual: 0
+        tutor_email: document.getElementById('nuevoTutorEmail').value
     };
 
     if (!datos.tutor_nombre || !datos.tutor_telefono) {
-        alert("Por favor complete nombre y teléfono del tutor.");
+        alert("Por favor complete el nombre y el teléfono del tutor.");
         return;
     }
 
     try {
-        const response = await fetch('/api/pacientes/registrar', {
+        const response = await fetch('/api/tutores/registrar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(datos)
@@ -204,18 +201,20 @@ async function guardarNuevoTutorRapido() {
         const result = await response.json();
 
         if (result.success) {
+            // Cerrar sub-modal y limpiar formulario
             const modalEl = document.getElementById('modalNuevoTutor');
             const modalInstance = bootstrap.Modal.getInstance(modalEl);
             if (modalInstance) modalInstance.hide();
             document.getElementById('formNuevoTutor').reset();
 
-            prepararNuevaCita(); // Recargar los tutores para que aparezca el nuevo
-            alert("Tutor registrado con éxito en la base de datos.");
+            // Refrescar la lista de tutores en el modal principal
+            prepararNuevaCita();
+            alert("Tutor registrado correctamente en el sistema.");
         } else {
-            alert("Error al guardar tutor: " + result.error);
+            alert("Error al registrar tutor: " + result.error);
         }
     } catch (error) {
-        console.error("Error guardando tutor rápido:", error);
+        console.error("Error en la petición de registro de tutor:", error);
     }
 }
 

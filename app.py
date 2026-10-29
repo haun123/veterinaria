@@ -51,11 +51,44 @@ def obtener_categorias():
 # 3. RUTAS DE PACIENTES / TUTORES Y MASCOTAS
 # ==========================================
 
+@app.route('/api/tutores/registrar', methods=['POST'])
+def registrar_tutor():
+    try:
+        data = request.json
+        ahora = datetime.utcnow()
+        
+        tutor_doc = {
+            "nombre": data.get("tutor_nombre"),
+            "apellidos": data.get("tutor_apellidos", ""),
+            "telefono": data.get("tutor_telefono"),
+            "email": data.get("tutor_email", ""),
+            "direccion": {
+                "calle": data.get("calle", ""),
+                "colonia": data.get("colonia", ""),
+                "ciudad": data.get("ciudad", ""),
+                "estado": data.get("estado", ""),
+                "cp": data.get("cp", "")
+            },
+            "activo": True,
+            "creadoEn": ahora
+        }
+        
+        tutor_id = db.tutores.insert_one(tutor_doc).inserted_id
+
+        return jsonify({
+            "success": True, 
+            "message": "Tutor registrado con éxito",
+            "tutor_id": str(tutor_id)
+        }), 201
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # Registrar Tutor + Primera Mascota (Requisito C)
 @app.route('/api/pacientes/registrar', methods=['POST'])
 def registrar_paciente_completo():
     try:
-        data =reira = request.json
+        data = request.json
         ahora = datetime.utcnow()
         
         # 1. Insertar Tutor
@@ -68,17 +101,24 @@ def registrar_paciente_completo():
             "creadoEn": ahora
         }).inserted_id
 
-        # 2. Insertar Mascota enlazada al Tutor y a Categoría
-        mascota_id = db.mascotas.insert_one({
-            "nombre": data.get("mascota_nombre"),
+        # 2. Insertar Mascota (Validando si trae categoría o es un registro temporal/vacío)
+        cat_id_raw = data.get("categoria_id")
+        categoria_id = ObjectId(cat_id_raw) if cat_id_raw and cat_id_raw.strip() != "" else None
+
+        mascota_doc = {
+            "nombre": data.get("mascota_nombre", "Temporal"),
             "tutorId": tutor_id,
-            "categoriaId": ObjectId(data.get("categoria_id")),
             "raza": data.get("mascota_raza", ""),
             "sexo": data.get("mascota_sexo", "desconocido"),
             "pesoActualKg": float(data.get("peso_actual", 0)),
             "activa": True,
             "creadoEn": ahora
-        }).inserted_id
+        }
+        
+        if categoria_id:
+            mascota_doc["categoriaId"] = categoria_id
+
+        mascota_id = db.mascotas.insert_one(mascota_doc).inserted_id
 
         return jsonify({
             "success": True, 
