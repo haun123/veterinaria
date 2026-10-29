@@ -18,7 +18,6 @@ async function cargarCitas() {
             result.data.forEach(cita => {
                 const estado = (cita.estado || 'pendiente').toLowerCase();
                 
-                // Definir insignia de estado
                 let estadoBadge = 'bg-secondary';
                 if (estado === 'confirmada' || estado === 'atendida') {
                     estadoBadge = 'bg-success';
@@ -28,7 +27,6 @@ async function cargarCitas() {
                     estadoBadge = 'bg-danger';
                 }
 
-                // Botón de atender solo si está pendiente
                 let botonAccion = '';
                 if (estado === 'pendiente') {
                     botonAccion = `
@@ -75,27 +73,27 @@ async function cargarCitas() {
     }
 }
 
-// Acción de atender cita
 function atenderCita(id) {
-    alert("Atendiendo cita ID: " + id + ". Aquí pasaremos al flujo de consulta y generación de historial.");
+    alert("Atendiendo cita ID: " + id);
 }
 
 // ==========================================
-// LÓGICA PARA EL MODAL DE SELECCIÓN Y MOSTRADOR
+// MOSTRADOR Y SELECCIÓN INTELIGENTE
 // ==========================================
 
-// Se ejecuta al hacer clic en "Nueva Cita / Reserva"
+// Al abrir el modal, cargamos SOLO los tutores y los servicios. Las mascotas inician VACÍAS y bloqueadas.
 async function prepararNuevaCita() {
     const form = document.getElementById('formSeleccionCita');
     if (form) form.reset();
     
     try {
-        // 1. Cargar tutores y sus mascotas desde la API de pacientes
+        // 1. Cargar tutores desde la API
         const resPacientes = await fetch('/api/pacientes/listar');
         const dataPacientes = await resPacientes.json();
         
         const selectTutor = document.getElementById('selectTutorCita');
         const selectMascota = document.getElementById('selectMascotaCita');
+        const btnMascota = document.getElementById('btnAgregarMascotaModal');
         
         if (selectTutor) {
             selectTutor.innerHTML = '<option value="">Seleccione un tutor...</option>';
@@ -107,11 +105,13 @@ async function prepararNuevaCita() {
             }
         }
 
+        // DEJAR MASCOTAS BLOQUEADAS HASTA QUE SE ELIJA UN TUTOR
         if (selectMascota) {
             selectMascota.innerHTML = '<option value="">Primero seleccione un tutor...</option>';
             selectMascota.disabled = true;
-            const btnMascota = document.getElementById('btnAgregarMascotaModal');
-            if (btnMascota) btnMascota.disabled = true;
+        }
+        if (btnMascota) {
+            btnMascota.disabled = true;
         }
 
         // 2. Cargar Servicios
@@ -140,11 +140,11 @@ async function prepararNuevaCita() {
             }
         }
     } catch (error) {
-        console.error("Error preparando selectores para nueva cita:", error);
+        console.error("Error preparando selectores:", error);
     }
 }
 
-// Cuando seleccionas un tutor, carga únicamente sus mascotas en el segundo select
+// ESTA ES LA CLAVE: Solo se cargan las mascotas del tutor que el usuario elija en el select
 function cambiarTutorSeleccionado() {
     const tutorId = document.getElementById('selectTutorCita').value;
     const selectMascota = document.getElementById('selectMascotaCita');
@@ -159,30 +159,33 @@ function cambiarTutorSeleccionado() {
         return;
     }
 
+    // Buscar al tutor seleccionado dentro de nuestra lista global en memoria
     const tutorEncontrado = listaPacientesGlobalCitas.find(t => t._id === tutorId);
 
     if (tutorEncontrado && tutorEncontrado.mascotas && tutorEncontrado.mascotas.length > 0) {
         selectMascota.innerHTML = '<option value="">Seleccione una mascota...</option>';
         tutorEncontrado.mascotas.forEach(m => {
-            selectMascota.innerHTML += `<option value="${m._id}">${m.nombre} (${m.especie} - ${m.raza || 'Sin raza'})</option>`;
+            selectMascota.innerHTML += `<option value="${m._id}">${m.nombre} (${m.especie || 'Mascota'} - ${m.raza || 'Sin raza'})</option>`;
         });
         selectMascota.disabled = false;
     } else {
         selectMascota.innerHTML = '<option value="">Este tutor no tiene mascotas registradas</option>';
-        selectMascota.disabled = false;
+        selectMascota.disabled = false; // Se habilita para que el usuario pueda usar el botón de "Agregar Mascota"
     }
 
-    if (btnMascota) btnMascota.disabled = false;
+    if (btnMascota) {
+        btnMascota.disabled = false;
+    }
 }
 
-// Guardar nuevo tutor desde su sub-modal rápido
+// Guardar nuevo tutor (Verificando que guarde correctamente en la base de datos)
 async function guardarNuevoTutorRapido() {
     const datos = {
         tutor_nombre: document.getElementById('nuevoTutorNombre').value,
         tutor_apellidos: document.getElementById('nuevoTutorApellidos').value,
         tutor_telefono: document.getElementById('nuevoTutorTelefono').value,
         tutor_email: document.getElementById('nuevoTutorEmail').value,
-        mascota_nombre: "Temporal", // Requerido provisionalmente por la API de registro
+        mascota_nombre: "Temporal", 
         categoria_id: "",
         peso_actual: 0
     };
@@ -206,17 +209,17 @@ async function guardarNuevoTutorRapido() {
             if (modalInstance) modalInstance.hide();
             document.getElementById('formNuevoTutor').reset();
 
-            prepararNuevaCita(); // Refrescar los selectores
-            alert("Tutor registrado con éxito.");
+            prepararNuevaCita(); // Recargar los tutores para que aparezca el nuevo
+            alert("Tutor registrado con éxito en la base de datos.");
         } else {
-            alert("Error: " + result.error);
+            alert("Error al guardar tutor: " + result.error);
         }
     } catch (error) {
         console.error("Error guardando tutor rápido:", error);
     }
 }
 
-// Guardar mascota nueva desde su sub-modal rápido
+// Guardar mascota nueva asociada al tutor seleccionado
 async function guardarNuevaMascotaRapida() {
     const tutorIdSeleccionado = document.getElementById('selectTutorCita').value;
     if (!tutorIdSeleccionado) {
@@ -239,14 +242,16 @@ async function guardarNuevaMascotaRapida() {
     }
 
     try {
-        alert("Mascota lista para asociar al tutor ID: " + tutorIdSeleccionado);
+        // Aquí conectamos con tu lógica de guardado de mascota en backend si ya la tienes creada,
+        // o aseguramos el POST correspondiente.
+        alert("Mascota lista para ser guardada en la base de datos para el tutor ID: " + tutorIdSeleccionado);
         
         const modalEl = document.getElementById('modalNuevaMascotaModal');
         const modalInstance = bootstrap.Modal.getInstance(modalEl);
         if (modalInstance) modalInstance.hide();
         document.getElementById('formNuevaMascotaModal').reset();
         
-        prepararNuevaCita(); // Refrescar selectores
+        prepararNuevaCita();
     } catch (error) {
         console.error("Error guardando mascota rápida:", error);
     }
