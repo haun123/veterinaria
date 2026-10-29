@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, render_template, request, jsonify
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
@@ -15,6 +15,10 @@ mongo_uri = os.getenv("MONGO_URI")
 client = MongoClient(mongo_uri)
 db = client["veterinaria"]  
 
+
+@app.route('/')
+def index():
+    return render_template('admin.html')
 # ==========================================
 # 1. RUTAS DE SERVICIOS (Catálogo)
 # ==========================================
@@ -187,6 +191,51 @@ def agregar_entrada_historial(mascota_id):
             "historial_id": str(resultado_id)
         }, 201)
 
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ==========================================
+# Apartado de administración de servicios
+# ==========================================
+
+# Crear un nuevo servicio
+@app.route('/api/servicios/crear', methods=['POST'])
+def crear_servicio():
+    try:
+        data = request.json
+        nuevo_servicio = {
+            "nombre": data.get("nombre"),
+            "tipo": data.get("tipo", "consulta"),
+            "duracionMin": int(data.get("duracion_min", 30)),
+            "precio": float(data.get("precio", 0)),
+            "activo": True
+        }
+        db.servicios.insert_one(nuevo_servicio)
+        return jsonify({"success": True, "message": "Servicio creado con éxito"}), 201
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# Actualizar un servicio existente
+@app.route('/api/servicios/actualizar/<id_servicio>', methods=['PUT'])
+def actualizar_servicio(id_servicio):
+    try:
+        data = request.json
+        actualizacion = {}
+        if "nombre" in data: actualizacion["nombre"] = data["nombre"]
+        if "tipo" in data: actualizacion["tipo"] = data["tipo"]
+        if "precio" in data: actualizacion["precio"] = float(data["precio"])
+        if "duracion_min" in data: actualizacion["duracionMin"] = int(data["duracion_min"])
+        
+        resultado = db.servicios.update_one(
+            {"_id": ObjectId(id_servicio)},
+            {"$set": actualizacion}
+        )
+
+        if resultado.matched_count == 0:
+            return jsonify({"success": False, "error": "Servicio no encontrado"}), 404
+
+        return jsonify({"success": True, "message": "Servicio actualizado con éxito"}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

@@ -1,0 +1,98 @@
+:root { 
+    --primary-green: #2d6a4f; 
+    --secondary-green: #52b788; 
+    --light-bg: #f8f9fa; 
+}
+
+body { 
+    background-color: var(--light-bg); 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+}
+
+.admin-wrapper { 
+    display: flex; 
+    min-height: 100vh; 
+}
+
+.sidebar { 
+    width: 260px; 
+    background-color: var(--primary-green); 
+    color: white; 
+    flex-shrink: 0; 
+    display: flex; 
+    flex-direction: column; 
+}
+
+.sidebar .brand-container { 
+    padding: 1.5rem; 
+    text-align: center; 
+}
+
+.sidebar .logo-img { 
+    max-height: 45px; 
+    width: auto; 
+}
+
+.sidebar .nav-menu { 
+    list-style: none; 
+    padding: 0; 
+    margin: 0; 
+}
+
+.sidebar .nav-link { 
+    color: rgba(255, 255, 255, 0.8); 
+    padding: 1rem 1.5rem; 
+    display: block; 
+    text-decoration: none; 
+    font-weight: 500; 
+}
+
+.sidebar .nav-link:hover, .sidebar .nav-link.active { 
+    background-color: rgba(255, 255, 255, 0.15); 
+    color: white; 
+    border-left: 4px solid #d8f3dc; 
+}
+
+.main-content { 
+    flex-grow: 1; 
+    display: flex; 
+    flex-direction: column; 
+}
+
+.topbar { 
+    background: white; 
+    border-bottom: 1px solid #dee2e6; 
+    padding: 0.75rem 2rem; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+
+.content-body { 
+    padding: 2rem; 
+    flex-grow: 1; 
+}
+
+.card-custom { 
+    border: none; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.04); 
+    border-radius: 12px; 
+}
+
+.btn-custom { 
+    background-color: var(--primary-green); 
+    color: white; 
+}
+
+.btn-custom:hover { 
+    background-color: #1b4332; 
+    color: white; 
+}
+
+.section-view { 
+    display: none; 
+}
+
+.section-view.active { 
+    display: block; 
+}
