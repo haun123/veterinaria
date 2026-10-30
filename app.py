@@ -467,7 +467,65 @@ def buscar_historial():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/historial/mascota/<mascota_id>', methods=['GET'])
+def obtener_historial_por_mascota(mascota_id):
+    print(f"\n==========================================")
+    print(f"🟢 [API] ID de mascota recibido: {mascota_id}")
+    
+    try:
+        # Convertimos a ObjectId si es un ID válido de Mongo, o lo dejamos como string
+        query_id = ObjectId(mascota_id) if len(mascota_id) == 24 else mascota_id
+        
+        # 1. CORREGIDO: Usamos 'mascotaId' que es como realmente se guarda en la BD
+        historiales = list(db.historial.find({'mascotaId': query_id}))
+        print(f"📦 [API] Registros encontrados en MongoDB: {len(historiales)}")
 
+        resultado_final = []
+
+        for h in historiales:
+            # 2. Formatear fecha principal
+            fecha_consulta = h.get("fecha")
+            fecha_str = fecha_consulta.strftime("%Y-%m-%d") if hasattr(fecha_consulta, "strftime") else str(fecha_consulta)[:10]
+
+            # 3. Formatear tratamientos (si existen)
+            tratamientos_formateados = []
+            for t in h.get("tratamientos", []):
+                tratamientos_formateados.append(
+                    f"{t.get('medicamento', '')} - {t.get('dosis', '')} ({t.get('frecuencia', '')}, por {t.get('duracionDias', '')} días)"
+                )
+
+            # 4. Formatear síntomas (puede ser lista o texto)
+            sintomas_val = h.get("sintomas", [])
+            sintomas_str = ", ".join(sintomas_val) if isinstance(sintomas_val, list) else str(sintomas_val)
+
+            # 5. Signos vitales
+            signos = h.get("signosVitales", {})
+
+            resultado_final.append({
+                "_id": str(h["_id"]),
+                "fecha": fecha_str,
+                "motivo": h.get("motivoConsulta", "Consulta general"),
+                "sintomas": sintomas_str,
+                "diagnostico": h.get("diagnostico", "Sin diagnóstico"),
+                "tratamientos": tratamientos_formateados,
+                "signos_vitales": {
+                    "peso": signos.get("pesoKg", 0),
+                    "temp": signos.get("temperaturaC", 0),
+                    "fc": signos.get("frecuenciaCardiaca", 0)
+                },
+                "observaciones": h.get("observaciones", ""),
+                "proxima_revision": str(h.get("proximaRevision", ""))[:10] if h.get("proximaRevision") else None,
+                "costo": h.get("costo", 500)
+            })
+
+        print(f"📤 [API] Enviando {len(resultado_final)} historiales formateados al frontend.")
+        print(f"==========================================\n")
+
+        return jsonify({"success": True, "data": resultado_final}), 200
+        
+    except Exception as e:
+        print(f"🔴 [API ERROR]: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # ==========================================
 # Apartado de administración de pacientes y tutores

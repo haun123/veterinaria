@@ -41,8 +41,13 @@ function renderizarTarjetas(duenos) {
                 <div class="d-flex align-items-center bg-light p-2 rounded mb-1 border-start border-success border-3">
                     <i class="bi bi-heart-pulse-fill text-success me-2"></i>
                     <div>
-                        <strong class="text-dark">${m.nombre}</strong>
-                        <div class="small text-muted">${m.especie} • ${m.raza || 'Raza no especificada'} • ${m.peso} kg</div>
+                        <!-- Cambiamos href="#" por javascript:void(0); para un control fluido -->
+                        <a href="javascript:void(0);" onclick="verHistorialMascota('${m._id}', '${m.nombre}')" class="text-decoration-none fw-bold text-dark">
+                            ${m.nombre} <i class="bi bi-box-arrow-up-right small text-muted"></i>
+                        </a>
+                        <div class="small text-muted">
+                            ${m.especie} - ${m.raza || 'Raza no especificada'} - ${m.peso} kg
+                        </div>
                     </div>
                 </div>
             `).join('');
@@ -86,6 +91,77 @@ function renderizarTarjetas(duenos) {
             </div>
         `;
     });
+}
+
+async function verHistorialMascota(mascotaId, nombreMascota) {
+    // Validación rápida por si el ID llega vacío o indefinido
+    if (!mascotaId || mascotaId === 'undefined') {
+        alert("No se pudo identificar el ID de esta mascota.");
+        return;
+    }
+
+    try {
+        // 1. Mostrar el modal inmediatamente con un indicador de carga
+        const modalBody = document.getElementById('modalHistorialBody');
+        document.getElementById('modalHistorialTitulo').innerText = `Historial Clínico: ${nombreMascota}`;
+        
+        modalBody.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-success" role="status"></div>
+                <p class="text-muted small mt-2">Buscando expediente clínico...</p>
+            </div>
+        `;
+
+        const modalEl = document.getElementById('modalVerHistorialMascota');
+        const modalInstance = new bootstrap.Modal(modalEl);
+        modalInstance.show();
+
+        // 2. Consultar al backend Flask usando el ID de la mascota
+        const response = await fetch(`/api/historial/mascota/${mascotaId}`);
+        const result = await response.json();
+
+        let contenidoHtml = '';
+
+        if (result.success && result.data && result.data.length > 0) {
+            contenidoHtml = `<div class="list-group">`;
+            result.data.forEach(h => {
+                contenidoHtml += `
+                    <div class="list-group-item mb-2 rounded border-start border-success border-4 shadow-sm">
+                        <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                            <h6 class="mb-0 fw-bold text-success">
+                                <i class="bi bi-file-medical-fill me-1"></i> ${h.servicio_nombre || h.motivo || 'Consulta Médica'}
+                            </h6>
+                            <span class="badge bg-light text-dark border">${h.fecha || 'Sin fecha'}</span>
+                        </div>
+                        <p class="mb-1 text-secondary small"><strong>Síntomas:</strong> ${h.sintomas || h.descripcion || 'No especificado'}</p>
+                        <p class="mb-1 text-dark"><strong>Diagnóstico:</strong> ${h.diagnostico || 'Pendiente'}</p>
+                        ${h.tratamiento ? `<p class="mb-1 small text-muted"><strong>Tratamiento:</strong> ${h.tratamiento}</p>` : ''}
+                        <div class="text-end mt-2">
+                            <small class="text-muted fst-italic">Atendido por: ${h.veterinario || 'Personal de clínica'}</small>
+                        </div>
+                    </div>
+                `;
+            });
+            contenidoHtml += `</div>`;
+        } else {
+            contenidoHtml = `
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-folder2-open display-4 opacity-50"></i>
+                    <p class="mt-3 mb-0">Esta mascota aún no cuenta con registros en su historial clínico.</p>
+                </div>
+            `;
+        }
+
+        modalBody.innerHTML = contenidoHtml;
+
+    } catch (error) {
+        console.error("Error al obtener el historial:", error);
+        document.getElementById('modalHistorialBody').innerHTML = `
+            <div class="alert alert-danger text-center m-3" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> Error al conectar con el servidor para cargar el historial.
+            </div>
+        `;
+    }
 }
 
 // Filtro rápido de búsqueda en tiempo real

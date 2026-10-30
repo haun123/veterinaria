@@ -23,9 +23,7 @@ function cambiarSeccion(seccionId, event) {
 
     // --- RECARGA AUTOMÁTICA CON LOS NOMBRES REALES ---
     // --- RECARGA AUTOMÁTICA CON LOS NOMBRES REALES ---
-    if (seccionId === 'historial' && typeof cargarHistorialCompleto === 'function') {
-        cargarHistorialCompleto(); 
-    } else if (seccionId === 'citas' && typeof cargarCitas === 'function') {
+    if (seccionId === 'citas' && typeof cargarCitas === 'function') {
         cargarCitas();
     } else if (seccionId === 'servicios' && typeof cargarServicios === 'function') {
         cargarServicios();

@@ -29,11 +29,6 @@
                     </a>
                 </li>
                 <li>
-                    <a href="#" class="nav-link" onclick="cambiarSeccion('historial', event)">
-                        <i class="bi bi-journal-medical me-2"></i> Historial Clínico
-                    </a>
-                </li>
-                <li>
                     <a href="#" class="nav-link" onclick="cambiarSeccion('pacientes', event)">
                         <i class="bi bi-people-fill me-2"></i> Dueños y Mascotas
                     </a>
@@ -388,26 +383,7 @@
                     </div>
                 </div>
 
-                <!-- 2. SECCIÓN DE HISTORIAL CLÍNICO -->
-                <div id="section-historial" class="section-view">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2>Historial Clínico</h2>
-                    </div>
-                    <div class="card card-custom p-4 mb-4">
-                        <label class="form-label fw-bold">Buscar por síntoma o diagnóstico:</label>
-                        <div class="input-group">
-                            <input type="text" id="inputBusquedaHistorial" class="form-control"
-                                placeholder="Ej. vómito, otitis, esguince..." oninput="buscarHistorialEnTiempoReal()">
-                            <button class="btn btn-outline-success" type="button"
-                                onclick="buscarHistorialEnTiempoReal()">
-                                <i class="bi bi-search"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div id="resultadosHistorial" class="row g-3">
-                        <!-- Las tarjetas del historial se cargarán aquí -->
-                    </div>
-                </div>
+
 
                 <!-- 3. SECCIÓN DE DUEÑOS Y MASCOTAS -->
                 <div id="section-pacientes" class="section-view">
@@ -431,6 +407,26 @@
                     <!-- Contenedor donde se cargan las tarjetas dinámicamente -->
                     <div id="contenedorDuenos" class="row g-4">
                         <!-- Las tarjetas se cargarán aquí dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- Modal para mostrar el Historial Clínico de la Mascota -->
+                <div class="modal fade" id="modalVerHistorialMascota" tabindex="-1"
+                    aria-labelledby="modalHistorialTitulo" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title" id="modalHistorialTitulo">Historial Clínico</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body" id="modalHistorialBody">
+                                <!-- Aquí se inyectará dinámicamente la información del historial -->
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
