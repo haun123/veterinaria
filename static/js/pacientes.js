@@ -10,7 +10,7 @@ async function cargarDirectorioDuenos() {
     try {
         const response = await fetch('/api/pacientes/listar');
         const result = await response.json();
-        
+
         const contenedor = document.getElementById('contenedorDuenos');
         contenedor.innerHTML = '';
 
@@ -104,7 +104,7 @@ async function verHistorialMascota(mascotaId, nombreMascota) {
         // 1. Mostrar el modal inmediatamente con un indicador de carga
         const modalBody = document.getElementById('modalHistorialBody');
         document.getElementById('modalHistorialTitulo').innerText = `Historial Clínico: ${nombreMascota}`;
-        
+
         modalBody.innerHTML = `
             <div class="text-center py-4">
                 <div class="spinner-border text-success" role="status"></div>
@@ -124,32 +124,69 @@ async function verHistorialMascota(mascotaId, nombreMascota) {
 
         if (result.success && result.data && result.data.length > 0) {
             contenidoHtml = `<div class="list-group">`;
+
             result.data.forEach(h => {
+                // Preparamos la lista de tratamientos si vienen en la API
+                let tratamientosHtml = '';
+                if (h.tratamientos && h.tratamientos.length > 0) {
+                    tratamientosHtml = `
+                <div class="mb-2">
+                    <strong class="small text-success"><i class="bi bi-capsule me-1"></i> Tratamientos:</strong>
+                    <ul class="mb-1 ps-3 small text-secondary">
+                        ${h.tratamientos.map(t => `<li>${t}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+                }
+
                 contenidoHtml += `
-                    <div class="list-group-item mb-2 rounded border-start border-success border-4 shadow-sm">
-                        <div class="d-flex w-100 justify-content-between align-items-center mb-1">
-                            <h6 class="mb-0 fw-bold text-success">
-                                <i class="bi bi-file-medical-fill me-1"></i> ${h.servicio_nombre || h.motivo || 'Consulta Médica'}
-                            </h6>
-                            <span class="badge bg-light text-dark border">${h.fecha || 'Sin fecha'}</span>
-                        </div>
-                        <p class="mb-1 text-secondary small"><strong>Síntomas:</strong> ${h.sintomas || h.descripcion || 'No especificado'}</p>
-                        <p class="mb-1 text-dark"><strong>Diagnóstico:</strong> ${h.diagnostico || 'Pendiente'}</p>
-                        ${h.tratamiento ? `<p class="mb-1 small text-muted"><strong>Tratamiento:</strong> ${h.tratamiento}</p>` : ''}
-                        <div class="text-end mt-2">
-                            <small class="text-muted fst-italic">Atendido por: ${h.veterinario || 'Personal de clínica'}</small>
-                        </div>
+            <div class="list-group-item mb-3 rounded border-start border-success border-4 shadow-sm p-3">
+                <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 fw-bold text-success">
+                        <i class="bi bi-file-medical-fill me-1"></i> ${h.motivo || 'Consulta Médica'}
+                    </h6>
+                    <span class="badge bg-success text-white">${h.fecha || 'Sin fecha'}</span>
+                </div>
+
+                <!-- Signos Vitales -->
+                <div class="row text-center mb-3 p-2 bg-light rounded border g-0">
+                    <div class="col-4 border-end">
+                        <small class="text-muted d-block" style="font-size: 0.75rem;"><i class="bi bi-speedometer2 text-danger"></i> Peso</small>
+                        <span class="fw-bold text-dark small">${h.signos_vitales?.peso || 0} kg</span>
                     </div>
-                `;
+                    <div class="col-4 border-end">
+                        <small class="text-muted d-block" style="font-size: 0.75rem;"><i class="bi bi-thermometer-half text-warning"></i> Temp</small>
+                        <span class="fw-bold text-dark small">${h.signos_vitales?.temp || 0} °C</span>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-muted d-block" style="font-size: 0.75rem;"><i class="bi bi-heart-pulse text-primary"></i> F. Cardíaca</small>
+                        <span class="fw-bold text-dark small">${h.signos_vitales?.fc || 0} lpm</span>
+                    </div>
+                </div>
+
+                <p class="mb-1 text-secondary small"><strong>Síntomas:</strong> ${h.sintomas || 'No especificado'}</p>
+                <p class="mb-1 text-dark"><strong>Diagnóstico:</strong> ${h.diagnostico || 'Pendiente'}</p>
+                
+                ${tratamientosHtml}
+
+                ${h.observaciones ? `<p class="mb-1 small text-muted"><strong>Observaciones:</strong> ${h.observaciones}</p>` : ''}
+
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top small text-muted">
+                    <span><i class="bi bi-calendar-event me-1"></i> Próxima revisión: <strong>${h.proxima_revision || 'No programada'}</strong></span>
+                    <span class="badge bg-secondary">$${h.costo || 0} MXN</span>
+                </div>
+            </div>
+        `;
             });
+
             contenidoHtml += `</div>`;
         } else {
             contenidoHtml = `
-                <div class="text-center py-5 text-muted">
-                    <i class="bi bi-folder2-open display-4 opacity-50"></i>
-                    <p class="mt-3 mb-0">Esta mascota aún no cuenta con registros en su historial clínico.</p>
-                </div>
-            `;
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-folder2-open display-4 opacity-50"></i>
+            <p class="mt-3 mb-0">Esta mascota aún no cuenta con registros en su historial clínico.</p>
+        </div>
+    `;
         }
 
         modalBody.innerHTML = contenidoHtml;
@@ -167,8 +204,8 @@ async function verHistorialMascota(mascotaId, nombreMascota) {
 // Filtro rápido de búsqueda en tiempo real
 function filtrarDuenos() {
     const texto = document.getElementById('inputBuscarDueno').value.toLowerCase();
-    const filtrados = listaDuenosGlobal.filter(item => 
-        item.nombre_completo.toLowerCase().includes(texto) || 
+    const filtrados = listaDuenosGlobal.filter(item =>
+        item.nombre_completo.toLowerCase().includes(texto) ||
         item.telefono.includes(texto)
     );
     renderizarTarjetas(filtrados);
