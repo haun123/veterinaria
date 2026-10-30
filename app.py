@@ -350,19 +350,16 @@ def obtener_citas():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-# Cancelar Cita (Requisito D)
-@app.route('/api/citas/cancelar/<id_cita>', methods=['PUT'])
-def cancelar_cita(id_cita):
+@app.route('/api/citas/eliminar/<id_cita>', methods=['DELETE'])
+def eliminar_cita(id_cita):
     try:
-        resultado = db.citas.update_one(
-            {"_id": ObjectId(id_cita)},
-            {"$set": {"estado": "cancelada", "actualizadoEn": datetime.utcnow()}}
-        )
+        # La forma correcta y oficial en PyMongo con guion bajo:
+        resultado = db.citas.delete_one({"_id": ObjectId(id_cita)})
 
-        if resultado.matched_count == 0:
+        if resultado.deleted_count == 0:
             return jsonify({"success": False, "error": "Cita no encontrada"}), 404
 
-        return jsonify({"success": True, "message": "Cita cancelada correctamente"}), 200
+        return jsonify({"success": True, "message": "Cita eliminada correctamente"}), 200
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

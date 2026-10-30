@@ -37,11 +37,19 @@ async function cargarCitas() {
                 let botonAccion = '';
                 if (estado === 'programada' || estado === 'confirmada') {
                     botonAccion = `
-            <button class="btn btn-sm btn-outline-success" onclick="atenderCita('${cita._id}')" title="Atender cita en mostrador">
-                <i class="bi bi-check-circle-fill me-1"></i> Atender
-            </button>`;
+        <button class="btn btn-sm btn-outline-success" onclick="atenderCita('${cita._id}')" title="Atender cita en mostrador">
+            <i class="bi bi-check-circle-fill me-1"></i> Atender
+        </button>`;
                 } else {
                     botonAccion = `<span class="text-muted small">Finalizada / Atendida</span>`;
+                }
+
+                // Agregamos el botón de eliminar SOLO si está programada o pendiente
+                if (estado === 'programada' || estado === 'pendiente') {
+                    botonAccion += `
+        <button class="btn btn-sm btn-outline-danger ms-1" onclick="abrirModalEliminarCita('${cita._id}', '${cita.mascota_nombre}', '${cita.tutor_nombre}', '${cita.servicio_nombre}')" title="Eliminar cita">
+            <i class="bi bi-trash-fill"></i>
+        </button>`;
                 }
 
                 tbody.innerHTML += `
@@ -85,7 +93,7 @@ async function atenderCita(citaId) {
     try {
         // Limpiar formulario anterior
         document.getElementById('formAtenderCita').reset();
-        
+
         // Guardar el ID de la cita en el input oculto del modal
         document.getElementById('atenderCitaId').value = citaId;
 
@@ -150,7 +158,7 @@ async function guardarAtencionClinica() {
 
         if (result.success) {
             alert("¡Consulta registrada en el historial clínico con éxito!");
-            
+
             // Cerrar el modal
             const modalEl = document.getElementById('modalAtenderCita');
             const modalInstance = bootstrap.Modal.getInstance(modalEl);
@@ -294,6 +302,55 @@ async function guardarNuevaCitaModal() {
         console.error("Error en la petición de la cita:", error);
     }
 }
+
+
+// Abrir modal de confirmación de eliminación
+function abrirModalEliminarCita(citaId, mascotaNombre, tutorNombre, motivo) {
+    // Guardar ID en el input oculto
+    document.getElementById('eliminarCitaId').value = citaId;
+
+    // Rellenar la info en la vista previa del modal
+    document.getElementById('infoEliminarMascota').textContent = mascotaNombre || 'Mascota';
+    document.getElementById('infoEliminarTutor').textContent = tutorNombre || 'Cliente general';
+    document.getElementById('infoEliminarMotivo').textContent = motivo || 'Consulta';
+
+    // Mostrar modal con Bootstrap
+    const modalEl = document.getElementById('modalEliminarCita');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+// Enviar la petición de eliminación al servidor
+async function ejecutarEliminacionCita() {
+    const citaId = document.getElementById('eliminarCitaId').value;
+    if (!citaId) return;
+
+    try {
+        const response = await fetch(`/api/citas/eliminar/${citaId}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            alert("Cita eliminada correctamente.");
+
+            // Cerrar modal
+            const modalEl = document.getElementById('modalEliminarCita');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+
+            // Refrescar tabla
+            if (typeof cargarCitas === 'function') {
+                cargarCitas();
+            }
+        } else {
+            alert("Error al eliminar la cita: " + result.error);
+        }
+    } catch (error) {
+        console.error("Error al eliminar la cita:", error);
+    }
+}
+
 
 // ESTA ES LA CLAVE: Solo se cargan las mascotas del tutor que el usuario elija en el select
 function cambiarTutorSeleccionado() {
