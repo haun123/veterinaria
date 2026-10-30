@@ -80,8 +80,92 @@ async function cargarCitas() {
     }
 }
 
-function atenderCita(id) {
-    alert("Atendiendo cita ID: " + id);
+// Abrir el modal al hacer clic en "Atender" en la tabla de citas
+async function atenderCita(citaId) {
+    try {
+        // Limpiar formulario anterior
+        document.getElementById('formAtenderCita').reset();
+        
+        // Guardar el ID de la cita en el input oculto del modal
+        document.getElementById('atenderCitaId').value = citaId;
+
+        // Mostrar el modal usando Bootstrap
+        const modalEl = document.getElementById('modalAtenderCita');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    } catch (error) {
+        console.error("Error al abrir el modal de atención:", error);
+    }
+}
+
+// Recopilar los datos del modal y enviarlos al backend
+async function guardarAtencionClinica() {
+    const citaId = document.getElementById('atenderCitaId').value;
+    const motivo = document.getElementById('atenderMotivo').value;
+    const diagnostico = document.getElementById('atenderDiagnostico').value;
+
+    if (!motivo || !diagnostico) {
+        alert("El motivo de la consulta y el diagnóstico son obligatorios.");
+        return;
+    }
+
+    // Convertir síntomas separados por comas a un arreglo de strings
+    const sintomasTexto = document.getElementById('atenderSintomas').value;
+    const sintomasArr = sintomasTexto ? sintomasTexto.split(',').map(s => s.trim()) : [];
+
+    // Estructurar el tratamiento si se llenó el campo de medicamento
+    const tratamientosArr = [];
+    const medNombre = document.getElementById('medNombre').value;
+    if (medNombre) {
+        tratamientosArr.push({
+            medicamento: medNombre,
+            dosis: document.getElementById('medDosis').value,
+            frecuencia: document.getElementById('medFrecuencia').value,
+            duracionDias: parseInt(document.getElementById('medDuracion').value) || 1
+        });
+    }
+
+    const payload = {
+        cita_id: citaId,
+        motivoConsulta: motivo,
+        signosVitales: {
+            pesoKg: parseFloat(document.getElementById('atenderPeso').value) || 0,
+            temperaturaC: parseFloat(document.getElementById('atenderTemp').value) || 0,
+            frecuenciaCardiaca: parseInt(document.getElementById('atenderFC').value) || 0,
+            frecuenciaRespiratoria: parseInt(document.getElementById('atenderFR').value) || 0
+        },
+        sintomas: sintomasArr,
+        diagnostico: diagnostico,
+        tratamientos: tratamientosArr,
+        observaciones: document.getElementById('atenderObservaciones').value
+    };
+
+    try {
+        const response = await fetch('/api/citas/atender', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            alert("¡Consulta registrada en el historial clínico con éxito!");
+            
+            // Cerrar el modal
+            const modalEl = document.getElementById('modalAtenderCita');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+
+            // Refrescar la tabla de citas
+            if (typeof cargarCitas === 'function') {
+                cargarCitas();
+            }
+        } else {
+            alert("Error al guardar la atención: " + result.error);
+        }
+    } catch (error) {
+        console.error("Error al enviar la atención clínica:", error);
+    }
 }
 
 // ==========================================

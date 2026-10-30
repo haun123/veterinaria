@@ -256,6 +256,106 @@
                         </div>
                     </div>
                 </div>
+                
+
+                <div class="modal fade" id="modalAtenderCita" tabindex="-1" aria-labelledby="modalAtenderCitaLabel"
+                    aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-custom text-white">
+                                <h5 class="modal-title" id="modalAtenderCitaLabel"><i
+                                        class="bi bi-file-medical-fill me-2"></i>Atención Clínica y Receta</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="formAtenderCita">
+                                    <input type="hidden" id="atenderCitaId">
+
+                                    <!-- Motivo y Síntomas -->
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="atenderMotivo" class="form-label">Motivo de la Consulta</label>
+                                            <input type="text" class="form-control" id="atenderMotivo" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="atenderSintomas" class="form-label">Síntomas (separados por
+                                                coma)</label>
+                                            <input type="text" class="form-control" id="atenderSintomas"
+                                                placeholder="vómito, decaimiento">
+                                        </div>
+                                    </div>
+
+                                    <!-- Signos Vitales -->
+                                    <h6 class="text-muted border-bottom pb-2 mb-3">Signos Vitales</h6>
+                                    <div class="row mb-3">
+                                        <div class="col-md-3">
+                                            <label for="atenderPeso" class="form-label">Peso (kg)</label>
+                                            <input type="number" step="0.1" class="form-control" id="atenderPeso">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="atenderTemp" class="form-label">Temperatura (°C)</label>
+                                            <input type="number" step="0.1" class="form-control" id="atenderTemp">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="atenderFC" class="form-label">Freq. Cardíaca</label>
+                                            <input type="number" class="form-control" id="atenderFC">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="atenderFR" class="form-label">Freq. Respiratoria</label>
+                                            <input type="number" class="form-control" id="atenderFR">
+                                        </div>
+                                    </div>
+
+                                    <!-- Diagnóstico -->
+                                    <div class="mb-3">
+                                        <label for="atenderDiagnostico" class="form-label">Diagnóstico</label>
+                                        <textarea class="form-control" id="atenderDiagnostico" rows="2"
+                                            required></textarea>
+                                    </div>
+
+                                    <!-- Tratamiento / Medicamento -->
+                                    <h6 class="text-muted border-bottom pb-2 mb-3">Tratamiento (Receta)</h6>
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label for="medNombre" class="form-label">Medicamento</label>
+                                            <input type="text" class="form-control" id="medNombre"
+                                                placeholder="Ej. Omeprazol">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="medDosis" class="form-label">Dosis</label>
+                                            <input type="text" class="form-control" id="medDosis"
+                                                placeholder="Ej. 20 mg">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="medFrecuencia" class="form-label">Frecuencia</label>
+                                            <input type="text" class="form-control" id="medFrecuencia"
+                                                placeholder="Ej. cada 24 h">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="medDuracion" class="form-label">Días</label>
+                                            <input type="number" class="form-control" id="medDuracion" placeholder="5">
+                                        </div>
+                                    </div>
+
+                                    <!-- Observaciones -->
+                                    <div class="mb-3">
+                                        <label for="atenderObservaciones" class="form-label">Observaciones /
+                                            Indicaciones</label>
+                                        <textarea class="form-control" id="atenderObservaciones" rows="2"
+                                            placeholder="Dieta blanda por 3 días."></textarea>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-custom" onclick="guardarAtencionClinica()">Guardar
+                                    Historial</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 2. SECCIÓN DE HISTORIAL CLÍNICO -->
                 <div id="section-historial" class="section-view">

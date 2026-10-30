@@ -135,6 +135,68 @@ def registrar_mascota():
 # Apartado para generar las citas y los historiales clínicos de las mascotas
 # ==========================================
 
+@app.route('/api/citas/atender', methods=['POST'])
+def atender_cita():
+    try:
+        data = request.json
+        cita_id = data.get("cita_id")
+        
+        cita = db.citas.find_one({"_id": ObjectId(cita_id)})
+        if not cita:
+            return jsonify({"success": False, "error": "Cita no encontrada"}), 404
+
+        ahora = datetime.utcnow()
+
+        # Documento base obligatorio
+        historial_doc = {
+            "mascotaId": cita.get("mascotaId"),
+            "tutorId": cita.get("tutorId"),
+            "usuarioId": ObjectId('6ae22182f2102fe7ce813716'),
+            "fecha": ahora,
+            "motivoConsulta": data.get("motivoConsulta", "Servicio general"),
+            "diagnostico": data.get("diagnostico", "Servicio realizado con éxito"),
+            "creadoEn": ahora
+        }
+
+        # Agregar signos vitales solo si el usuario los llenó
+        signos_raw = data.get("signosVitales", {})
+        if any(signos_raw.values()): # Si al menos uno tiene valor
+            historial_doc["signosVitales"] = {
+                "pesoKg": float(signos_raw.get("pesoKg", 0)),
+                "temperaturaC": float(signos_raw.get("temperaturaC", 0)),
+                "frecuenciaCardiaca": int(signos_raw.get("frecuenciaCardiaca", 0)),
+                "frecuenciaRespiratoria": int(signos_raw.get("frecuenciaRespiratoria", 0))
+            }
+
+        # Síntomas (opcional)
+        sintomas = data.get("sintomas", [])
+        if sintomas:
+            historial_doc["sintomas"] = sintomas
+
+        # Tratamientos / Receta (opcional)
+        tratamientos = data.get("tratamientos", [])
+        if tratamientos:
+            historial_doc["tratamientos"] = tratamientos
+
+        # Observaciones (opcional)
+        observaciones = data.get("observaciones")
+        if observaciones:
+            historial_doc["observaciones"] = observaciones
+
+        # Insertar en el historial
+        db.historial.insert_one(historial_doc)
+
+        # Actualizar la cita a completada
+        db.citas.update_one(
+            {"_id": ObjectId(cita_id)},
+            {"$set": {"estado": "completada", "actualizadoEn": ahora}}
+        )
+
+        return jsonify({"success": True, "message": "Atención guardada con éxito"}), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # por confirmar ------------------------------------------------------------------------------------------
 @app.route('/api/pacientes/registrar', methods=['POST'])
 def registrar_paciente_completo():
