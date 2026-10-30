@@ -19,8 +19,9 @@ db = client["veterinaria"]
 @app.route('/')
 def index():
     return render_template('admin.html')
+
 # ==========================================
-# 1. RUTAS DE SERVICIOS (Catálogo)
+# Rutas para obtener la informacion mostrada en el dashboard
 # ==========================================
 @app.route('/api/servicios', methods=['GET'])
 def obtener_servicios():
@@ -32,10 +33,6 @@ def obtener_servicios():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-
-# ==========================================
-# 2. RUTAS DE CATEGORÍAS (Especies y Razas)
-# ==========================================
 @app.route('/api/categorias', methods=['GET'])
 def obtener_categorias():
     try:
@@ -48,7 +45,7 @@ def obtener_categorias():
 
 
 # ==========================================
-# 3. RUTAS DE PACIENTES / TUTORES Y MASCOTAS
+# Apartado para generar los registros de los tutores y mascotas
 # ==========================================
 
 @app.route('/api/tutores/registrar', methods=['POST'])
@@ -133,7 +130,12 @@ def registrar_mascota():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-# Registrar Tutor + Primera Mascota (Requisito C)
+
+# ==========================================
+# Apartado para generar las citas y los historiales clínicos de las mascotas
+# ==========================================
+
+# por confirmar ------------------------------------------------------------------------------------------
 @app.route('/api/pacientes/registrar', methods=['POST'])
 def registrar_paciente_completo():
     try:
@@ -181,7 +183,7 @@ def registrar_paciente_completo():
 
 
 # ==========================================
-# 4. RUTAS DE CITAS Y AGENDA
+# Apartado para generar las citas
 # ==========================================
 
 @app.route('/api/citas/crear', methods=['POST'])
@@ -190,78 +192,49 @@ def crear_cita_mostrador():
         data = request.json
         ahora = datetime.utcnow()
 
-        # 1. Gestionar Tutor (Buscar si ya existe por teléfono o crearlo)
-        telefono = data.get("tutor_telefono")
-        tutor = db.tutores.find_one({"telefono": telefono})
+        # 1. Obtener IDs y convertir a ObjectId de forma segura
+        tutor_id = ObjectId(data.get("tutor_id"))
+        mascota_id = ObjectId(data.get("mascota_id"))
+        servicio_id = ObjectId(data.get("servicio_id")) if data.get("servicio_id") else None
+
+        # 2. Extraer nombres para mantener el documento independiente y legible
+        tutor_nombre = data.get("tutor_nombre", "")
+        mascota_nombre = data.get("mascota_nombre", "")
         
-        if tutor:
-            tutor_id = tutor["_id"]
-            tutor_nombre_completo = f"{tutor.get('nombre', '')} {tutor.get('apellidos', '')}".strip()
-        else:
-            # Crear nuevo tutor con la estructura exacta
-            tutor_nuevo = {
-                "nombre": data.get("tutor_nombre"),
-                "apellidos": data.get("tutor_apellidos", ""),
-                "telefono": telefono,
-                "email": data.get("tutor_email", ""),
-                "activo": True,
-                "creadoEn": ahora
-            }
-            tutor_id = db.tutores.insert_one(tutor_nuevo).inserted_id
-            tutor_nombre_completo = f"{data.get('tutor_nombre')} {data.get('tutor_apellidos', '')}".strip()
-
-        # 2. Registrar la Mascota asociada al tutor
-        categoria_id = data.get("categoria_id")
-        if categoria_id and not isinstance(categoria_id, ObjectId):
-            categoria_id = ObjectId(categoria_id)
-
-        alergias_raw = data.get("mascota_alergias", "")
-        alergias_list = [a.strip() for a in alergias_raw.split(",")] if alergias_raw else []
-
-        mascota_doc = {
-            "nombre": data.get("mascota_nombre"),
-            "tutorId": tutor_id,
-            "categoriaId": categoria_id,
-            "raza": data.get("mascota_raza", ""),
-            "sexo": data.get("mascota_sexo", "macho"),
-            "color": data.get("mascota_color", ""),
-            "pesoActualKg": float(data.get("mascota_peso", 0)),
-            "alergias": alergias_list,
-            "activa": True,
-            "creadoEn": ahora
-        }
-        mascota_id = db.mascotas.insert_one(mascota_doc).inserted_id
-        mascota_nombre = data.get("mascota_nombre")
-
-        # 3. Obtener el servicio seleccionado para extraer su nombre
-        servicio_id = data.get("servicio_id")
         servicio_nombre = "Consulta general"
         if servicio_id:
-            if not isinstance(servicio_id, ObjectId):
-                servicio_id = ObjectId(servicio_id)
             servicio = db.servicios.find_one({"_id": servicio_id})
             if servicio:
                 servicio_nombre = servicio.get("nombre", "Consulta")
 
-        # 4. Crear la Cita con la estructura exacta que especificaste
+        # Definir tipo y estado respetando el enum del esquema de MongoDB ''''''''''''''''''''''''''''''''''''''
+        tipo_cita = data.get("tipo", "presencial").lower()
+        
+        if tipo_cita == "reserva":
+            estado_cita = "programada"  # Valor permitido por MongoDB para reservas
+        else:
+            estado_cita = "confirmada"  # Valor permitido para citas presenciales''''''''''''''''''''''''''''''''
+
+        # 4. Crear la Cita con la estructura exacta
         cita_doc = {
             "mascotaId": mascota_id,
             "tutorId": tutor_id,
-            "usuarioId": ObjectId('6ae22182f2102fe7ce813716'), # ID de usuario por defecto del sistema o sesión
+            "usuarioId": ObjectId('6ae22182f2102fe7ce813716'), # ID por defecto del sistema
             "servicioId": servicio_id,
             "mascotaNombre": mascota_nombre,
-            "tutorNombre": tutor_nombre_completo,
+            "tutorNombre": tutor_nombre,
             "servicioNombre": servicio_nombre,
+            "tipo": tipo_cita,
             "fechaInicio": ahora,
-            "fechaFin": ahora, # Se puede ajustar según la duración del servicio
+            "fechaFin": ahora,
             "motivo": data.get("motivo", "Consulta en mostrador"),
-            "estado": "pendiente", # Queda lista en la agenda para ser atendida
+            "estado": estado_cita,
             "creadoEn": ahora
         }
         
         db.citas.insert_one(cita_doc)
 
-        return jsonify({"success": True, "message": "Cita registrada con éxito en mostrador"}), 201
+        return jsonify({"success": True, "message": "Cita registrada con éxito"}), 201
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

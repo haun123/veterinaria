@@ -10,29 +10,36 @@ async function cargarCitas() {
     try {
         const response = await fetch('/api/citas');
         const result = await response.json();
-        
+
         const tbody = document.getElementById('tablaCitasBody');
         tbody.innerHTML = '';
 
         if (result.success && result.data.length > 0) {
             result.data.forEach(cita => {
+                const tipoCita = (cita.tipo || 'presencial').toLowerCase();
                 const estado = (cita.estado || 'pendiente').toLowerCase();
-                
+
                 let estadoBadge = 'bg-secondary';
-                if (estado === 'confirmada' || estado === 'atendida') {
-                    estadoBadge = 'bg-success';
-                } else if (estado === 'pendiente') {
+                let textoEstado = estado;
+
+                if (tipoCita === 'reserva' && estado === 'programada') {
                     estadoBadge = 'bg-warning text-dark';
+                    textoEstado = 'Reserva Programada';
+                } else if (estado === 'confirmada' || estado === 'atendida') {
+                    estadoBadge = 'bg-success';
+                } else if (estado === 'programada') {
+                    estadoBadge = 'bg-warning text-dark';
+                    textoEstado = 'Programada';
                 } else if (estado === 'cancelada') {
                     estadoBadge = 'bg-danger';
                 }
 
                 let botonAccion = '';
-                if (estado === 'pendiente') {
+                if (estado === 'programada' || estado === 'confirmada') {
                     botonAccion = `
-                        <button class="btn btn-sm btn-outline-success" onclick="atenderCita('${cita._id}')" title="Atender cita en mostrador">
-                            <i class="bi bi-check-circle-fill me-1"></i> Atender
-                        </button>`;
+            <button class="btn btn-sm btn-outline-success" onclick="atenderCita('${cita._id}')" title="Atender cita en mostrador">
+                <i class="bi bi-check-circle-fill me-1"></i> Atender
+            </button>`;
                 } else {
                     botonAccion = `<span class="text-muted small">Finalizada / Atendida</span>`;
                 }
@@ -51,7 +58,7 @@ async function cargarCitas() {
                             <small class="text-muted">${cita.motivo}</small>
                         </td>
                         <td>
-                            <span class="badge ${estadoBadge} text-capitalize">${estado}</span>
+                            <span class="badge ${estadoBadge} text-capitalize">${textoEstado}</span>
                         </td>
                         <td class="text-end">
                             ${botonAccion}
@@ -85,16 +92,16 @@ function atenderCita(id) {
 async function prepararNuevaCita() {
     const form = document.getElementById('formSeleccionCita');
     if (form) form.reset();
-    
+
     try {
         // 1. Cargar tutores desde la API
         const resPacientes = await fetch('/api/pacientes/listar');
         const dataPacientes = await resPacientes.json();
-        
+
         const selectTutor = document.getElementById('selectTutorCita');
         const selectMascota = document.getElementById('selectMascotaCita');
         const btnMascota = document.getElementById('btnAgregarMascotaModal');
-        
+
         if (selectTutor) {
             selectTutor.innerHTML = '<option value="">Seleccione un tutor...</option>';
             if (dataPacientes.success) {
@@ -144,6 +151,66 @@ async function prepararNuevaCita() {
     }
 }
 
+async function guardarNuevaCitaModal() {
+    const selectTutor = document.getElementById('selectTutorCita');
+    const selectMascota = document.getElementById('selectMascotaCita');
+    const selectServicio = document.getElementById('citaSelectServicio');
+
+    const tutorId = selectTutor.value;
+    const mascotaId = selectMascota.value;
+    const servicioId = selectServicio.value;
+
+    if (!tutorId || !mascotaId || !servicioId) {
+        alert("Por favor seleccione el tutor, la mascota y el servicio.");
+        return;
+    }
+
+    // Extraer los nombres de los elementos seleccionados
+    const tutorTexto = selectTutor.options[selectTutor.selectedIndex].text;
+    const tutorNombre = tutorTexto.split('(')[0].trim();
+
+    const mascotaTexto = selectMascota.options[selectMascota.selectedIndex].text;
+    const mascotaNombre = mascotaTexto.split('(')[0].trim();
+
+    const datos = {
+        tutor_id: tutorId,
+        mascota_id: mascotaId,
+        servicio_id: servicioId,
+        tutor_nombre: tutorNombre,
+        mascota_nombre: mascotaNombre,
+        tipo: document.getElementById('citaTipo').value, // 'presencial' o 'reserva'
+        motivo: document.getElementById('citaMotivo').value
+    };
+
+    try {
+        const response = await fetch('/api/citas/crear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(datos)
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            // Cerrar el modal y limpiar el formulario
+            const modalEl = document.getElementById('modalNuevaCita');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+            document.getElementById('formSeleccionCita').reset();
+
+            // Refrescar la tabla de la agenda
+            if (typeof cargarCitas === 'function') {
+                cargarCitas();
+            }
+
+            alert("Cita registrada correctamente.");
+        } else {
+            alert("Error al registrar la cita: " + result.error);
+        }
+    } catch (error) {
+        console.error("Error en la petición de la cita:", error);
+    }
+}
+
 // ESTA ES LA CLAVE: Solo se cargan las mascotas del tutor que el usuario elija en el select
 function cambiarTutorSeleccionado() {
     const tutorId = document.getElementById('selectTutorCita').value;
@@ -151,7 +218,7 @@ function cambiarTutorSeleccionado() {
     const btnMascota = document.getElementById('btnAgregarMascotaModal');
 
     selectMascota.innerHTML = '';
-    
+
     if (!tutorId) {
         selectMascota.innerHTML = '<option value="">Primero seleccione un tutor...</option>';
         selectMascota.disabled = true;
@@ -253,7 +320,7 @@ async function guardarNuevaMascotaRapida() {
             const modalInstance = bootstrap.Modal.getInstance(modalEl);
             if (modalInstance) modalInstance.hide();
             document.getElementById('formNuevaMascotaModal').reset();
-            
+
             prepararNuevaCita(); // Recarga los selectores para reflejar la nueva mascota
             alert("Mascota registrada y asociada con éxito.");
         } else {
