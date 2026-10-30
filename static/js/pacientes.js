@@ -140,7 +140,7 @@ async function verHistorialMascota(mascotaId, nombreMascota) {
                 }
 
                 contenidoHtml += `
-            <div class="list-group-item mb-3 rounded border-start border-success border-4 shadow-sm p-3">
+            <div class="list-group-item mb-3 rounded shadow-sm p-3">
                 <div class="d-flex w-100 justify-content-between align-items-center mb-2">
                     <h6 class="mb-0 fw-bold text-success">
                         <i class="bi bi-file-medical-fill me-1"></i> ${h.motivo || 'Consulta Médica'}
