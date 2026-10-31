@@ -1,140 +1,527 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PupQroo - Administración</title>
+    <title>Panel Administrativo - Veterinaria</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        :root { --primary-green: #2d6a4f; --secondary-green: #52b788; --light-bg: #f8f9fa; }
-        body { background-color: var(--light-bg); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .admin-wrapper { display: flex; min-height: 100vh; }
-        .sidebar { width: 260px; background-color: var(--primary-green); color: white; flex-shrink: 0; display: flex; flex-direction: column; }
-        .sidebar .brand-container { padding: 1.5rem; text-align: center; }
-        .sidebar .logo-img { max-height: 45px; width: auto; }
-        .sidebar .nav-menu { list-style: none; padding: 0; margin: 0; }
-        .sidebar .nav-link { color: rgba(255, 255, 255, 0.8); padding: 1rem 1.5rem; display: block; text-decoration: none; font-weight: 500; }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: rgba(255, 255, 255, 0.15); color: white; border-left: 4px solid #d8f3dc; }
-        .main-content { flex-grow: 1; display: flex; flex-direction: column; }
-        .topbar { background: white; border-bottom: 1px solid #dee2e6; padding: 0.75rem 2rem; display: flex; justify-content: space-between; align-items: center; }
-        .content-body { padding: 2rem; flex-grow: 1; }
-        .card-custom { border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.04); border-radius: 12px; }
-        .btn-custom { background-color: var(--primary-green); color: white; }
-        .btn-custom:hover { background-color: #1b4332; color: white; }
-    </style>
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- CSS Personalizado -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 </head>
+
 <body>
 
     <div class="admin-wrapper">
-        <div class="sidebar">
+        <!-- ================= SIDEBAR ================= -->
+        <nav class="sidebar shadow">
             <div class="brand-container">
-                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="logo-img" onerror="this.style.display='none'">
-                <h4 class="fw-bold mt-2">PupQroo</h4>
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Veterinaria" class="logo-img mb-1">
             </div>
+            <hr class="text-white-50 m-0">
             <ul class="nav-menu mt-3">
-                <li class="nav-item"><a href="#" class="nav-link active" id="navCitas" onclick="cambiarSeccion('citas')">📋 Citas</a></li>
-                <li class="nav-item"><a href="#" class="nav-link" id="navPacientes" onclick="cambiarSeccion('pacientes')">🐾 Pacientes</a></li>
+                <li>
+                    <a href="#" class="nav-link active" onclick="cambiarSeccion('citas', event)">
+                        <i class="bi bi-calendar-check me-2"></i> Citas y Agenda
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="nav-link" onclick="cambiarSeccion('pacientes', event)">
+                        <i class="bi bi-people-fill me-2"></i> Dueños y Mascotas
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="nav-link" onclick="cambiarSeccion('servicios', event)">
+                        <i class="bi bi-tag-fill me-2"></i> Servicios
+                    </a>
+                </li>
             </ul>
-        </div>
+        </nav>
 
+        <!-- ================= CONTENIDO PRINCIPAL ================= -->
         <div class="main-content">
-            <div class="topbar">
-                <div class="text-muted small" id="breadcrumb">Inicio / Citas</div>
-                <div class="d-flex align-items-center gap-3">
-                    <span class="badge bg-light text-dark p-2 border">🩺 Dr. Veterinario (Admin)</span>
-                    <a href="/" class="btn btn-sm btn-outline-success">👤 Ir a Tutor</a>
+            <!-- Topbar superior -->
+            <header class="topbar">
+                <span class="fw-bold text-secondary">Mostrador Principal</span>
+                <span class="badge bg-success">En línea</span>
+            </header>
+
+            <div class="content-body">
+
+                <!-- 1. SECCIÓN DE CITAS -->
+                <div id="section-citas" class="section-view active">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2>Agenda de Citas</h2>
+                        <button class="btn btn-custom" data-bs-toggle="modal" data-bs-target="#modalNuevaCita"
+                            onclick="prepararNuevaCita()">
+                            <i class="bi bi-plus-circle me-1"></i> Nueva Cita / Reserva
+                        </button>
+                    </div>
+                    <div class="card card-custom p-4">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Dueño y Contacto</th>
+                                        <th>Mascota</th>
+                                        <th>Servicio / Motivo</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaCitasBody">
+                                    <!-- Las citas se cargarán dinámicamente aquí -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- MODAL PARA NUEVA CITA / MOSTRADOR -->
+                <div class="modal fade" id="modalNuevaCita" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">Seleccionar Tutor y Mascota</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="formSeleccionCita">
+
+                                    <!-- SECCIÓN 1: TUTOR -->
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold text-success">
+                                            <i class="bi bi-person-fill me-1"></i> Seleccionar Tutor (Dueño)
+                                        </label>
+                                        <div class="input-group">
+                                            <select id="selectTutorCita" class="form-select"
+                                                onchange="cambiarTutorSeleccionado()">
+                                                <option value="">Cargando tutores...</option>
+                                            </select>
+                                            <button class="btn btn-outline-success" type="button" data-bs-toggle="modal"
+                                                data-bs-target="#modalNuevoTutor">
+                                                <i class="bi bi-person-plus-fill me-1"></i> Agregar Usuario
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- SECCIÓN 2: MASCOTA -->
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold text-success">
+                                            <i class="bi bi-heart-fill me-1"></i> 2. Seleccionar Mascota
+                                        </label>
+                                        <div class="input-group">
+                                            <select id="selectMascotaCita" class="form-select" disabled>
+                                                <option value="">Primero seleccione un tutor...</option>
+                                            </select>
+                                            <button class="btn btn-outline-success" type="button"
+                                                id="btnAgregarMascotaModal" data-bs-toggle="modal"
+                                                data-bs-target="#modalNuevaMascotaModal" disabled>
+                                                <i class="bi bi-plus-circle-fill me-1"></i> Agregar Mascota
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <hr>
+
+                                    <!-- SECCIÓN 3: SERVICIO Y MOTIVO -->
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label fw-bold">Tipo de Cita</label>
+                                            <select id="citaTipo" class="form-select" required>
+                                                <option value="presencial">Presencial (Mostrador)</option>
+                                                <option value="reserva">Reserva</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label fw-bold">Servicio</label>
+                                            <select id="citaSelectServicio" class="form-select">
+                                                <option value="">Cargando servicios...</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label fw-bold">Motivo de la Consulta</label>
+                                            <input type="text" id="citaMotivo" class="form-control"
+                                                placeholder="Ej. Revisión general">
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                <button type="button" class="btn btn-custom" onclick="guardarNuevaCitaModal()">Guardar
+                                    Cita</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- SUB-MODAL: AGREGAR NUEVO TUTOR -->
+                <div class="modal fade" id="modalNuevoTutor" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">Registrar Nuevo Tutor</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="formNuevoTutor">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nombre(s)</label>
+                                        <input type="text" id="nuevoTutorNombre" class="form-control" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Apellidos</label>
+                                        <input type="text" id="nuevoTutorApellidos" class="form-control">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Teléfono</label>
+                                        <input type="text" id="nuevoTutorTelefono" class="form-control" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" id="nuevoTutorEmail" class="form-control">
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-custom" onclick="guardarNuevoTutorRapido()">Guardar
+                                    Tutor</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- SUB-MODAL: AGREGAR NUEVA MASCOTA -->
+                <div class="modal fade" id="modalNuevaMascotaModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">Registrar Nueva Mascota</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="formNuevaMascotaModal">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nombre de la Mascota *</label>
+                                        <input type="text" id="nuevaMascotaNombre" class="form-control" required
+                                            placeholder="Ej. Max">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Especie (Categoría) *</label>
+                                        <select id="selectCategoriaMascotaModal" class="form-select" required>
+                                            <option value="">Cargando categorías...</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Sexo *</label>
+                                        <select id="nuevaMascotaSexo" class="form-select" required>
+                                            <option value="macho">Macho</option>
+                                            <option value="hembra">Hembra</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Raza (Opcional)</label>
+                                        <input type="text" id="nuevaMascotaRaza" class="form-control"
+                                            placeholder="Ej. Labrador o Mestizo">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Color (Opcional)</label>
+                                        <input type="text" id="nuevaMascotaColor" class="form-control"
+                                            placeholder="Ej. Dorado">
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-custom"
+                                    onclick="guardarNuevaMascotaRapida()">Guardar Mascota</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="modal fade" id="modalAtenderCita" tabindex="-1" aria-labelledby="modalAtenderCitaLabel"
+                    aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title" id="modalAtenderCitaLabel"><i
+                                        class="bi bi-file-medical-fill me-2"></i>Atención Clínica y Receta</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="formAtenderCita">
+                                    <input type="hidden" id="atenderCitaId">
+
+                                    <!-- Motivo y Síntomas -->
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="atenderMotivo" class="form-label">Motivo de la Consulta</label>
+                                            <input type="text" class="form-control" id="atenderMotivo" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="atenderSintomas" class="form-label">Síntomas (separados por
+                                                coma)</label>
+                                            <input type="text" class="form-control" id="atenderSintomas"
+                                                placeholder="vómito, decaimiento">
+                                        </div>
+                                    </div>
+
+                                    <!-- Signos Vitales -->
+                                    <h6 class="text-muted border-bottom pb-2 mb-3">Signos Vitales</h6>
+                                    <div class="row mb-3">
+                                        <div class="col-md-3">
+                                            <label for="atenderPeso" class="form-label">Peso (kg)</label>
+                                            <input type="number" step="0.1" class="form-control" id="atenderPeso">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="atenderTemp" class="form-label">Temperatura (°C)</label>
+                                            <input type="number" step="0.1" class="form-control" id="atenderTemp">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="atenderFC" class="form-label">Freq. Cardíaca</label>
+                                            <input type="number" class="form-control" id="atenderFC">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="atenderFR" class="form-label">Freq. Respiratoria</label>
+                                            <input type="number" class="form-control" id="atenderFR">
+                                        </div>
+                                    </div>
+
+                                    <!-- Diagnóstico -->
+                                    <div class="mb-3">
+                                        <label for="atenderDiagnostico" class="form-label">Diagnóstico</label>
+                                        <textarea class="form-control" id="atenderDiagnostico" rows="2"
+                                            required></textarea>
+                                    </div>
+
+                                    <!-- Tratamiento / Medicamento -->
+                                    <h6 class="text-muted border-bottom pb-2 mb-3">Tratamiento (Receta)</h6>
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label for="medNombre" class="form-label">Medicamento</label>
+                                            <input type="text" class="form-control" id="medNombre"
+                                                placeholder="Ej. Omeprazol">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="medDosis" class="form-label">Dosis</label>
+                                            <input type="text" class="form-control" id="medDosis"
+                                                placeholder="Ej. 20 mg">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="medFrecuencia" class="form-label">Frecuencia</label>
+                                            <input type="text" class="form-control" id="medFrecuencia"
+                                                placeholder="Ej. cada 24 h">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="medDuracion" class="form-label">Días</label>
+                                            <input type="number" class="form-control" id="medDuracion" placeholder="5">
+                                        </div>
+                                    </div>
+
+                                    <!-- Observaciones -->
+                                    <div class="mb-3">
+                                        <label for="atenderObservaciones" class="form-label">Observaciones /
+                                            Indicaciones</label>
+                                        <textarea class="form-control" id="atenderObservaciones" rows="2"
+                                            placeholder="Dieta blanda por 3 días."></textarea>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-custom" onclick="guardarAtencionClinica()">Guardar
+                                    Historial</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal fade" id="modalEliminarCita" tabindex="-1" aria-labelledby="modalEliminarCitaLabel"
+                    aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title" id="modalEliminarCitaLabel"><i
+                                        class="bi bi-exclamation-triangle-fill me-2"></i>Eliminar Cita</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <input type="hidden" id="eliminarCitaId">
+                                <p>¿Estás seguro de que deseas eliminar esta cita? Esta acción no se puede deshacer.</p>
+                                <div class="alert alert-light border p-3 mb-0">
+                                    <p class="mb-1"><strong>Paciente:</strong> <span id="infoEliminarMascota">-</span>
+                                    </p>
+                                    <p class="mb-1"><strong>Tutor:</strong> <span id="infoEliminarTutor">-</span></p>
+                                    <p class="mb-0"><strong>Motivo / Servicio:</strong> <span
+                                            id="infoEliminarMotivo">-</span></p>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-danger" onclick="ejecutarEliminacionCita()">Sí,
+                                    eliminar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- 3. SECCIÓN DE DUEÑOS Y MASCOTAS -->
+                <div id="section-pacientes" class="section-view">
+                    <!-- Título de la sección -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2>Directorio de Dueños y Mascotas</h2>
+                    </div>
+
+                    <!-- Tarjeta de búsqueda con el mismo diseño que el historial -->
+                    <div class="card card-custom p-4 mb-4">
+                        <label class="form-label fw-bold">Buscar por nombre o teléfono:</label>
+                        <div class="input-group">
+                            <input type="text" id="inputBuscarDueno" class="form-control"
+                                placeholder="Ej. Juan Pérez, 9981234567..." onkeyup="filtrarDuenos()">
+                            <button class="btn btn-outline-success" type="button" onclick="filtrarDuenos()">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Contenedor donde se cargan las tarjetas dinámicamente -->
+                    <div id="contenedorDuenos" class="row g-4">
+                        <!-- Las tarjetas se cargarán aquí dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- Modal para mostrar el Historial Clínico de la Mascota -->
+                <div class="modal fade" id="modalVerHistorialMascota" tabindex="-1"
+                    aria-labelledby="modalHistorialTitulo" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title" id="modalHistorialTitulo">Historial Clínico</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body" id="modalHistorialBody">
+                                <!-- Aquí se inyectará dinámicamente la información del historial sadasdawd-->
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. SECCIÓN DE SERVICIOS -->
+                <div id="section-servicios" class="section-view">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2>Catálogo de Servicios</h2>
+                        <button class="btn btn-custom" data-bs-toggle="modal" data-bs-target="#modalServicio"
+                            onclick="prepararNuevoServicio()">
+                            <i class="bi bi-plus-circle me-1"></i> Nuevo Servicio
+                        </button>
+                    </div>
+                    <div class="card card-custom p-4">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Tipo</th>
+                                        <th>Duración (min)</th>
+                                        <th>Precio</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaServiciosBody">
+                                    <!-- Los servicios se cargarán dinámicamente aquí -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MODAL PARA CREAR / EDITAR SERVICIO -->
+                <div class="modal fade" id="modalServicio" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title" id="modalServicioTitulo">Registrar Nuevo Servicio</h5>
+                                <button type="button" class="btn-close btn-close-white"
+                                    data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="formServicio">
+                                    <input type="hidden" id="servicioIdEditar">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nombre del Servicio</label>
+                                        <input type="text" id="servNombre" class="form-control" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Tipo</label>
+                                        <select id="servTipo" class="form-select">
+                                            <option value="consulta">Consulta</option>
+                                            <option value="vacunacion">Vacunación</option>
+                                            <option value="cirugia">Cirugía</option>
+                                            <option value="estetica">Estética</option>
+                                            <option value="laboratorio">Laboratorio</option>
+                                            <option value="otro">Otro</option>
+                                        </select>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Duración (minutos)</label>
+                                            <input type="number" id="servDuracion" class="form-control" value="30"
+                                                required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Precio ($ MXN)</label>
+                                            <input type="number" step="0.01" id="servPrecio" class="form-control"
+                                                required>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-custom" onclick="guardarServicio()">Guardar
+                                    Servicio</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
-            <div class="content-body" id="adminContainer"></div>
         </div>
     </div>
 
-    <!-- Modal Registrar Mascota -->
-    <div class="modal fade" id="modalAgregarMascota" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content p-3">
-                <div class="modal-header border-0"><h5 class="fw-bold text-success">Agregar Mascota</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <form id="formNuevaMascota" onsubmit="guardarMascota(event)">
-                        <div class="mb-3"><label class="form-label small text-muted">Nombre</label><input type="text" class="form-control" id="mNombre" required></div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3"><label class="form-label small text-muted">Especie</label><select class="form-select" id="mEspecie"><option value="Perro">Perro</option><option value="Gato">Gato</option></select></div>
-                            <div class="col-md-6 mb-3"><label class="form-label small text-muted">Raza</label><input type="text" class="form-control" id="mRaza" required></div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3"><label class="form-label small text-muted">Edad (años)</label><input type="number" class="form-control" id="mEdad" required></div>
-                            <div class="col-md-6 mb-3"><label class="form-label small text-muted">Peso (kg)</label><input type="number" step="0.1" class="form-control" id="mPeso" required></div>
-                        </div>
-                        <div class="mb-3"><label class="form-label small text-muted">Tutor</label><input type="text" class="form-control" id="mTutor" required></div>
-                        <button type="submit" class="btn btn-custom w-100 py-2 fw-bold">Guardar Mascota</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", () => cambiarSeccion('citas'));
-
-        function cambiarSeccion(sech) {
-            document.querySelectorAll('.sidebar .nav-link').forEach(l => l.classList.remove('active'));
-            const c = document.getElementById('adminContainer'), b = document.getElementById('breadcrumb');
-
-            if (sech === 'citas') {
-                document.getElementById('navCitas').classList.add('active'); b.innerText = "Inicio / Citas";
-                c.innerHTML = `
-                    <div class="mb-4"><h2 class="text-success fw-bold">Agenda de citas</h2><p class="text-muted small">Gestiona las consultas.</p></div>
-                    <div class="card card-custom p-4 bg-white"><table class="table align-middle"><thead class="table-light"><tr><th>Fecha</th><th>Paciente</th><th>Tutor</th><th>Motivo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="tablaCitas"><tr><td colspan="6" class="text-center text-muted">Cargando...</td></tr></tbody></table></div>`;
-                cargarCitasAdmin();
-            } else if (sech === 'pacientes') {
-                document.getElementById('navPacientes').classList.add('active'); b.innerText = "Inicio / Pacientes";
-                c.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center mb-4"><div><h2 class="text-success fw-bold">Pacientes</h2><p class="text-muted small">Directorio clínico.</p></div><button class="btn btn-custom" data-bs-toggle="modal" data-bs-target="#modalAgregarMascota">+ Agregar mascota</button></div>
-                    <div class="row g-4" id="gridPacientes"><div class="col-12 text-center text-muted">Cargando...</div></div>`;
-                cargarPacientesAdmin();
-            }
-        }
-
-        async function cargarCitasAdmin() {
-            const res = await fetch('/api/citas'); const json = await res.json();
-            const tb = document.getElementById('tablaCitas'); tb.innerHTML = '';
-            if(json.success && json.data.length) {
-                json.data.forEach(x => {
-                    tb.innerHTML += `<tr><td>${new Date(x.fechaInicio).toLocaleString()}</td><td class="fw-bold">${x.mascotaNombre}</td><td>${x.tutorNombre}</td><td>${x.motivo}</td><td><span class="badge bg-success">${x.estado}</span></td><td><button class="btn btn-sm btn-success me-1" onclick="cambiarEstado('${x._id}', 'confirmada')">Confirmar</button></td></tr>`;
-                });
-            } else { tb.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin citas.</td></tr>'; }
-        }
-
-        async function cambiarEstado(id, estado) {
-            await fetch(`/api/citas/${id}/estado`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({estado}) });
-            cargarCitasAdmin();
-        }
-
-        async function cargarPacientesAdmin() {
-            const res = await fetch('/api/mascotas'); const json = await res.json();
-            const g = document.getElementById('gridPacientes'); g.innerHTML = '';
-            if(json.success && json.data.length) {
-                json.data.forEach(x => {
-                    g.innerHTML += `<div class="col-md-4"><div class="card card-custom p-4 bg-white h-100"><h5 class="fw-bold">${x.nombre}</h5><p class="text-muted small">${x.especie} • ${x.raza}</p><div class="border-top pt-2 small">Tutor: <strong>${x.tutorNombre || 'N/A'}</strong></div></div></div>`;
-                });
-            } else { g.innerHTML = '<div class="col-12 text-center text-muted">Sin pacientes.</div>'; }
-        }
-
-        async function guardarMascota(e) {
-            e.preventDefault();
-            const payload = {
-                nombre: document.getElementById('mNombre').value, especie: document.getElementById('mEspecie').value,
-                raza: document.getElementById('mRaza').value, edad: document.getElementById('mEdad').value,
-                pesoKg: document.getElementById('mPeso').value, tutorNombre: document.getElementById('mTutor').value
-            };
-            const res = await fetch('/api/mascotas', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            if((await res.json()).success) {
-                alert("¡Mascota guardada!"); bootstrap.Modal.getInstance(document.getElementById('modalAgregarMascota')).hide();
-                e.target.reset(); cargarPacientesAdmin();
-            }
-        }
-    </script>
+    <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Script Personalizado -->
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/servicios.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pacientes.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/historial.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/citas.js') }}"></script>
 </body>
+
 </html>
