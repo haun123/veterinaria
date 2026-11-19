@@ -247,9 +247,27 @@ def crear_cita_mostrador():
             "creadoEn": ahora
         }
         
-        db.citas.insert_one(cita_doc)
+        resultado = db.citas.insert_one(cita_doc)
 
-        return jsonify({"success": True, "message": "Cita registrada con éxito"}), 201
+        return jsonify({
+            "success": True,
+            "accion": "INSERT",
+            "coleccion": "veterinaria.citas",
+            "message": "Cita registrada con éxito",
+            "id_generado": str(resultado.inserted_id),
+            "datos_agregados": {
+                "tutor_id": str(tutor_id),
+                "tutor_nombre": tutor_nombre,
+                "mascota_id": str(mascota_id),
+                "mascota_nombre": mascota_nombre,
+                "servicio_id": str(servicio_id) if servicio_id else None,
+                "servicio_nombre": servicio_nombre,
+                "tipo": tipo_cita,
+                "estado": estado_cita,
+                "motivo": cita_doc["motivo"],
+                "fecha_inicio": ahora.isoformat()
+            }
+        }), 201
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

@@ -1,0 +1,103 @@
+{
+  "citas": {
+    "tutor_nombre": {
+      "tipo": "nombre"
+    },
+    "tutor_apellidos": {
+      "tipo": "apellidos"
+    },
+    "tutor_telefono": {
+      "tipo": "telefono"
+    },
+    "tutor_email": {
+      "tipo": "correo"
+    },
+    "categoria_id": {
+      "tipo": "id_categoria"
+    },
+    "mascota_nombre": {
+      "tipo": "nombre_mascota"
+    },
+    "mascota_raza": {
+      "tipo": "raza"
+    },
+    "mascota_sexo": {
+      "tipo": "opcion",
+      "valores": ["macho", "hembra"]
+    },
+    "mascota_color": {
+      "tipo": "color"
+    },
+    "mascota_peso": {
+      "tipo": "decimal",
+      "min": 1,
+      "max": 60
+    },
+    "mascota_alergias": {
+      "tipo": "alergias"
+    },
+    "servicio_id": {
+      "tipo": "id_servicio"
+    },
+    "motivo": {
+      "tipo": "opcion",
+      "valores": [
+        "Consulta general",
+        "Vacunacion",
+        "Revision",
+        "Desparasitacion",
+        "Problema digestivo"
+      ]
+    }
+  },
+  "historial": {
+    "usuario_id": {
+      "tipo": "id_usuario"
+    },
+    "motivo_consulta": {
+      "tipo": "opcion",
+      "valores": [
+        "Revision general",
+        "Seguimiento",
+        "Consulta preventiva",
+        "Control de peso"
+      ]
+    },
+    "peso_kg": {
+      "tipo": "decimal",
+      "min": 1,
+      "max": 60
+    },
+    "temperatura_c": {
+      "tipo": "decimal",
+      "min": 37,
+      "max": 40
+    },
+    "sintomas": {
+      "tipo": "lista",
+      "valores": [
+        "Decaimiento",
+        "Falta de apetito",
+        "Vomito",
+        "Tos",
+        "Comezon",
+        "Ninguno"
+      ]
+    },
+    "diagnostico": {
+      "tipo": "opcion",
+      "valores": [
+        "Sin alteraciones aparentes",
+        "Revision preventiva",
+        "Requiere seguimiento",
+        "Observacion general"
+      ]
+    },
+    "tratamientos": {
+      "tipo": "lista_objetos"
+    },
+    "observaciones": {
+      "tipo": "texto"
+    }
+  }
+}
