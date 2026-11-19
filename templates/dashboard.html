@@ -433,6 +433,20 @@
       $("modal-stats").innerHTML = html;
     }
 
+    /* ---------- Estado de la API (según responda o no) ---------- */
+    function apiViva() {
+      if (S.api === "idle" || (S.api === "err" && TXT.api === "Sin respuesta")) {
+        S.api = "ok"; TXT.api = "En línea";
+      }
+      if (L["l-api-mongo"] === "idle" || (L["l-api-mongo"] === "err" && S.api === "ok")) {
+        L["l-api-mongo"] = mongoDocs > 0 ? "ok" : "idle";
+      }
+    }
+    function apiCaida() {
+      S.api = "err"; TXT.api = "Sin respuesta"; L["l-api-mongo"] = "err";
+      pintar();
+    }
+
     /* ---------- Bots ---------- */
     function toggleBot(botId) {
       const info = ultimoEstadoBots[botId];
@@ -474,10 +488,14 @@
     }
 
     async function actualizarBots() {
+      let data;
       try {
         const res = await fetch("/api/bots/estado");
-        const data = await res.json();
+        data = await res.json();
+      } catch (e) { apiCaida(); return; }
+      try {
         if (!data.success) return;
+        apiViva();
         ultimoEstadoBots = data.bots;
 
         for (const [botId, info] of Object.entries(data.bots)) {
@@ -574,14 +592,18 @@
 
     /* ---------- Métricas ---------- */
     async function actualizarMetricas() {
+      let data;
       try {
         const res = await fetch("/api/estado");
-        const data = await res.json();
+        data = await res.json();
+      } catch (e) { apiCaida(); return; }
+      try {
         if (!data.success) return;
         ultimoEstadoGlobal = data;
 
         const m = data.mongodb;
         mongoDocs = m.documentos_totales;
+        apiViva();
         $("m-totales").textContent = m.documentos_totales;
         $("m-sinc").textContent = m.documentos_sincronizados;
         $("m-pend").textContent = Math.max(0, m.documentos_totales - m.documentos_sincronizados);
