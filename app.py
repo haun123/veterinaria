@@ -4,11 +4,16 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
 from dotenv import load_dotenv
+from bots_CRUD.rutas_bots import bots_bp
+from etl.rutas_etl import etl_bp
 
 # Carga las variables de entorno desde el archivo .env
 load_dotenv()
 
 app = Flask(__name__)
+app.register_blueprint(bots_bp)
+app.register_blueprint(etl_bp)
+
 
 # Conexión a MongoDB Atlas usando tu variable de entorno
 mongo_uri = os.getenv("MONGO_URI")
@@ -18,7 +23,7 @@ db = client["veterinaria"]
 
 @app.route('/')
 def index():
-    return render_template('admin.html')
+    return render_template('bots_dashboard.html')
 
 # ==========================================
 # Rutas para obtener la informacion mostrada en el dashboard

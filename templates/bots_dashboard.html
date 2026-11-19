@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard de Simulación — Bots & ETL</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: #0f172a; color: #e2e8f0; margin: 0; padding: 20px; }
+    h1 { font-size: 1.4rem; margin: 0 0 16px; display: flex; justify-content: space-between; align-items: center; }
+    .badge { padding: 6px 14px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; }
+    .st-sincronizado { background: #065f46; color: #6ee7b7; border: 1px solid #10b981; }
+    .st-ejecucion { background: #78350f; color: #fcd34d; border: 1px solid #f59e0b; }
+    .st-error { background: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; }
+
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 18px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; }
+    .card h2 { font-size: 1rem; margin: 0 0 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
+
+    /* Botones */
+    .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+    button { cursor: pointer; border: none; border-radius: 6px; padding: 8px 14px; font-weight: 600; font-size: 0.85rem; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-start { background: #10b981; color: #052e16; }
+    .btn-stop { background: #ef4444; color: #fff; }
+    .btn-etl { background: #3b82f6; color: #fff; }
+
+    /* Pipeline Animado */
+    .pipeline-box { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; margin-bottom: 18px; }
+    .pipeline { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+    .node {
+      flex: 1; text-align: center; padding: 14px 8px; border-radius: 8px;
+      background: #0f172a; border: 2px solid #334155; font-weight: 700; transition: all 0.25s;
+    }
+    .node.active { border-color: #38bdf8; background: #0c4a6e; box-shadow: 0 0 16px rgba(56, 189, 248, 0.45); }
+    .node.success { border-color: #10b981; background: #064e3b; box-shadow: 0 0 16px rgba(16, 185, 129, 0.45); }
+    .node.err { border-color: #ef4444; background: #7f1d1d; }
+    .node small { display: block; font-weight: 400; color: #94a3b8; font-size: 0.75rem; margin-top: 4px; }
+
+    .arrow { flex: 0.6; height: 6px; background: #334155; border-radius: 4px; position: relative; overflow: hidden; }
+    .arrow .pulse {
+      position: absolute; top: 0; left: -40%; width: 40%; height: 100%;
+      background: #38bdf8; border-radius: 4px; opacity: 0;
+    }
+    .arrow.flowing .pulse { opacity: 1; animation: flowAnim 0.9s linear infinite; }
+    @keyframes flowAnim { from { left: -40%; } to { left: 100%; } }
+
+    /* Métricas */
+    .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .metric { background: #0f172a; padding: 10px; border-radius: 6px; border: 1px solid #334155; }
+    .metric span { display: block; font-size: 0.75rem; color: #94a3b8; }
+    .metric strong { font-size: 1.25rem; color: #f8fafc; }
+    .sub-list { margin-top: 10px; font-size: 0.8rem; color: #cbd5e1; display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill { background: #0f172a; border: 1px solid #334155; padding: 3px 8px; border-radius: 4px; }
+
+    #log-eventos {
+      background: #020617; border: 1px solid #334155; border-radius: 8px; padding: 12px;
+      height: 130px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>
+    <span>Dashboard de Simulación CRUD & ETL (MongoDB → Neon PostgreSQL)</span>
+    <div>
+      <button class="btn-etl" id="btn-forzar-etl" onclick="ejecutarETLManual()">Sincronizar ahora (ETL)</button>
+      <span id="badge-estado" class="badge st-sincronizado" style="margin-left:10px;">Sincronizado</span>
+    </div>
+  </h1>
+
+  <!-- 1. CONTROL DE BOTS -->
+  <div class="grid-3">
+    <div class="card" id="card-bot1">
+      <h2>Bot 1 — Citas</h2>
+      <div>Estado: <strong id="st-bot1">Detenido</strong></div>
+      <div style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">
+        Exitosas: <span id="ok-bot1">0</span> | Fallidas: <span id="err-bot1">0</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn-start" id="start-bot1" onclick="controlBot('bot1','iniciar')">Iniciar</button>
+        <button class="btn-stop" id="stop-bot1" onclick="controlBot('bot1','detener')" disabled>Detener</button>
+      </div>
+    </div>
+
+    <div class="card" id="card-bot2">
+      <h2>Bot 2 — Historial Clínico</h2>
+      <div>Estado: <strong id="st-bot2">Detenido</strong></div>
+      <div style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">
+        Exitosas: <span id="ok-bot2">0</span> | Fallidas: <span id="err-bot2">0</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn-start" id="start-bot2" onclick="controlBot('bot2','iniciar')">Iniciar</button>
+        <button class="btn-stop" id="stop-bot2" onclick="controlBot('bot2','detener')" disabled>Detener</button>
+      </div>
+    </div>
+
+    <div class="card" id="card-bot3">
+      <h2>Bot 3 — Mixto (CRUD)</h2>
+      <div>Estado: <strong id="st-bot3">Detenido</strong></div>
+      <div style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">
+        Exitosas: <span id="ok-bot3">0</span> | Fallidas: <span id="err-bot3">0</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn-start" id="start-bot3" onclick="controlBot('bot3','iniciar')">Iniciar</button>
+        <button class="btn-stop" id="stop-bot3" onclick="controlBot('bot3','detener')" disabled>Detener</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. FLUJO DE DATOS ANIMADO -->
+  <div class="pipeline-box">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong style="color:#94a3b8; font-size:0.9rem;">FLUJO DE DATOS EN TIEMPO REAL</strong>
+      <span id="texto-flujo" style="font-size:0.82rem; color:#38bdf8;">En espera de actividad...</span>
+    </div>
+    <div class="pipeline">
+      <div class="node" id="node-bots">BOTS CRUD<small id="sub-bots">0 activos</small></div>
+      <div class="arrow" id="arr-bot-api"><div class="pulse"></div></div>
+      <div class="node" id="node-api">API FLASK<small>REST / JSON</small></div>
+      <div class="arrow" id="arr-api-mongo"><div class="pulse"></div></div>
+      <div class="node" id="node-mongo">MONGODB<small id="sub-mongo">0 docs</small></div>
+      <div class="arrow" id="arr-mongo-etl"><div class="pulse"></div></div>
+      <div class="node" id="node-etl">PIPELINE ETL<small>Cada 60s / Manual</small></div>
+      <div class="arrow" id="arr-etl-pg"><div class="pulse"></div></div>
+      <div class="node" id="node-pg">POSTGRESQL<small id="sub-pg">0 regs</small></div>
+    </div>
+  </div>
+
+  <!-- 3. TARJETAS DE MÉTRICAS -->
+  <div class="grid-2">
+    <div class="card">
+      <h2>MongoDB (Origen NoSQL)</h2>
+      <div class="metrics-grid">
+        <div class="metric"><span>Documentos totales</span><strong id="m-totales">0</strong></div>
+        <div class="metric"><span>Documentos sincronizados</span><strong id="m-sinc">0</strong></div>
+        <div class="metric"><span>Usuarios / Procesos conectados</span><strong id="m-users">1</strong></div>
+        <div class="metric"><span>Pendientes por migrar</span><strong id="m-pend">0</strong></div>
+      </div>
+      <div class="sub-list" id="lista-colecciones"></div>
+    </div>
+
+    <div class="card">
+      <h2>Neon PostgreSQL (Destino Relacional)</h2>
+      <div class="metrics-grid">
+        <div class="metric"><span>Registros totales</span><strong id="pg-totales">0</strong></div>
+        <div class="metric"><span>Tablas sincronizadas</span><strong id="pg-tablas">0 / 11</strong></div>
+        <div class="metric"><span>Errores de carga</span><strong id="pg-errores">0</strong></div>
+        <div class="metric"><span>Última sincronización</span><strong id="pg-ultima" style="font-size:0.95rem;">Nunca</strong></div>
+      </div>
+      <div class="sub-list" id="lista-tablas"></div>
+    </div>
+  </div>
+
+  <!-- BITÁCORA VISUAL EN VIVO -->
+  <div id="log-eventos"></div>
+
+  <script>
+    const ultimosEventosBots = { bot1: 0, bot2: 0, bot3: 0 };
+    let ultimoCicloETL = 0;
+
+    function logMsg(texto) {
+      const box = document.getElementById("log-eventos");
+      const hora = new Date().toLocaleTimeString();
+      box.innerHTML = `[${hora}] ${texto}<br>` + box.innerHTML;
+    }
+
+    function iluminarTramo(nodoIds, flechaId, clase = "active", duracion = 1100) {
+      nodoIds.forEach(id => document.getElementById(id).classList.add(clase));
+      if (flechaId) document.getElementById(flechaId).classList.add("flowing");
+      setTimeout(() => {
+        nodoIds.forEach(id => document.getElementById(id).classList.remove(clase));
+        if (flechaId) document.getElementById(flechaId).classList.remove("flowing");
+      }, duracion);
+    }
+
+    async function controlBot(botId, accion) {
+      try {
+        const res = await fetch(`/api/bots/${botId}/${accion}`, { method: "POST" });
+        const data = await res.json();
+        logMsg(`${botId.toUpperCase()}: ${data.message || data.error}`);
+        actualizarBots();
+      } catch (e) {
+        logMsg(`Error controlando ${botId}: ${e}`);
+      }
+    }
+
+    async function ejecutarETLManual() {
+      const btn = document.getElementById("btn-forzar-etl");
+      btn.disabled = true;
+      actualizarBadge("En ejecución");
+      document.getElementById("texto-flujo").textContent = "ETL extrayendo de MongoDB y cargando en Neon PostgreSQL...";
+      iluminarTramo(["node-mongo", "node-etl"], "arr-mongo-etl", "active", 2500);
+      logMsg("Iniciando sincronización ETL manual...");
+
+      try {
+        const res = await fetch("/api/etl/ejecutar", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          iluminarTramo(["node-etl", "node-pg"], "arr-etl-pg", "success", 2000);
+          logMsg(`ETL completado: ${data.registros_procesados} registros sincronizados.`);
+          document.getElementById("texto-flujo").textContent = `Sincronizado (${data.registros_procesados} registros)`;
+        } else {
+          iluminarTramo(["node-etl"], null, "err", 2500);
+          logMsg(`Error en ETL: ${data.error}`);
+        }
+      } catch (e) {
+        logMsg(`Fallo de red en ETL: ${e}`);
+      } finally {
+        btn.disabled = false;
+        actualizarMetricas();
+      }
+    }
+
+    function actualizarBadge(estado) {
+      const badge = document.getElementById("badge-estado");
+      badge.textContent = estado;
+      badge.className = "badge " + (
+        estado === "En ejecución" ? "st-ejecucion" :
+        estado === "Error" ? "st-error" : "st-sincronizado"
+      );
+    }
+
+    async function actualizarBots() {
+      try {
+        const res = await fetch("/api/bots/estado");
+        const data = await res.json();
+        if (!data.success) return;
+
+        document.getElementById("sub-bots").textContent = `${data.bots_activos} activos`;
+        document.getElementById("m-users").textContent = data.procesos_conectados;
+
+        for (const [botId, info] of Object.entries(data.bots)) {
+          document.getElementById(`st-${botId}`).textContent = info.activo ? `Activo (${info.fase})` : "Detenido";
+          document.getElementById(`ok-${botId}`).textContent = info.exitosas;
+          document.getElementById(`err-${botId}`).textContent = info.fallidas;
+          document.getElementById(`start-${botId}`).disabled = info.activo;
+          document.getElementById(`stop-${botId}`).disabled = !info.activo;
+
+          if (info.evento_id > ultimosEventosBots[botId]) {
+            ultimosEventosBots[botId] = info.evento_id;
+            if (info.fase === "enviando_api") {
+              document.getElementById("texto-flujo").textContent = `${botId.toUpperCase()} enviando ${info.operacion} a la API...`;
+              iluminarTramo(["node-bots", "node-api"], "arr-bot-api", "active", 1100);
+            } else if (info.fase === "guardado_mongo") {
+              document.getElementById("texto-flujo").textContent = `API guardó en MongoDB: ${info.detalle}`;
+              iluminarTramo(["node-api", "node-mongo"], "arr-api-mongo", "success", 1200);
+              logMsg(`${botId.toUpperCase()} -> MongoDB: ${info.detalle}`);
+              actualizarMetricas();
+            } else if (info.fase === "error") {
+              iluminarTramo(["node-bots", "node-api"], null, "err", 1500);
+              logMsg(`ERROR ${botId.toUpperCase()}: ${info.detalle}`);
+            }
+          }
+        }
+      } catch (e) { /* silencio en polling */ }
+    }
+
+    async function actualizarMetricas() {
+      try {
+        const res = await fetch("/api/estado");
+        const data = await res.json();
+        if (!data.success) return;
+
+        // MongoDB
+        const m = data.mongodb;
+        document.getElementById("m-totales").textContent = m.documentos_totales;
+        document.getElementById("m-sinc").textContent = m.documentos_sincronizados;
+        document.getElementById("m-users").textContent = m.usuarios_conectados;
+        document.getElementById("m-pend").textContent = Math.max(0, m.documentos_totales - m.documentos_sincronizados);
+        document.getElementById("sub-mongo").textContent = `${m.documentos_totales} docs`;
+
+        document.getElementById("lista-colecciones").innerHTML = Object.entries(m.detalle_colecciones)
+          .map(([k, v]) => `<span class="pill">${k}: <b>${v}</b></span>`).join("");
+
+        // PostgreSQL
+        const pg = data.postgresql;
+        document.getElementById("pg-totales").textContent = pg.registros_totales;
+        document.getElementById("pg-tablas").textContent = pg.tablas_sincronizadas;
+        document.getElementById("pg-errores").textContent = pg.errores_carga;
+        document.getElementById("pg-ultima").textContent = pg.ultima_sincronizacion
+          ? new Date(pg.ultima_sincronizacion + "Z").toLocaleTimeString()
+          : "Pendiente";
+        document.getElementById("sub-pg").textContent = `${pg.registros_totales} regs`;
+
+        document.getElementById("lista-tablas").innerHTML = Object.entries(pg.detalle_tablas)
+          .map(([k, v]) => `<span class="pill">${k}: <b>${v}</b></span>`).join("");
+
+        // Estado ETL (y animación si corrió el ciclo automático de 60s)
+        actualizarBadge(data.etl.estado);
+        if (data.etl.ciclo_id > ultimoCicloETL) {
+          ultimoCicloETL = data.etl.ciclo_id;
+          iluminarTramo(["node-mongo", "node-etl", "node-pg"], "arr-etl-pg", "success", 2000);
+          logMsg("Sincronización ETL automática (60s) completada.");
+        }
+      } catch (e) { /* silencio en polling */ }
+    }
+
+    // Polling rápido para animación de bots (cada 1s) y métricas de BD (cada 5s)
+    setInterval(actualizarBots, 1000);
+    setInterval(actualizarMetricas, 5000);
+    actualizarBots();
+    actualizarMetricas();
+  </script>
+</body>
+</html>
