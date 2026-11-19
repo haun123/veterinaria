@@ -13,10 +13,24 @@ def _get_any(doc, *keys, default=None):
     return default
 
 
+def _purgar_huerfanos(cur, tabla, ids_vistos):
+    """
+    Borra de Neon los registros cuyo mongo_id ya no existe en MongoDB.
+    Si ids_vistos está vacío, se vacía la tabla (Mongo no tiene nada).
+    'tabla' viene siempre de una lista fija del código, nunca de input externo.
+    """
+    cur.execute(
+        f"DELETE FROM {tabla} WHERE NOT (mongo_id = ANY(%s::text[]));",
+        (list(ids_vistos),),
+    )
+    return cur.rowcount
+
+
 def ejecutar_etl():
     """
     Extrae documentos de MongoDB (veterinaria), los transforma al modelo relacional
     y ejecuta UPSERT idempotente en Neon PostgreSQL (Veterinaria_DB).
+    También elimina de Neon los registros que ya no existen en MongoDB.
     """
     inicio = datetime.utcnow()
     mongo_db = get_mongo_db()
@@ -24,6 +38,7 @@ def ejecutar_etl():
     cur = conn.cursor()
 
     procesados = 0
+    eliminados = 0
     errores = 0
     detalle_error = None
     bitacora_id = None
@@ -32,8 +47,8 @@ def ejecutar_etl():
         # Registrar inicio en etl_bitacora
         cur.execute(
             """
-            INSERT INTO etl_bitacora (fecha_inicio, estado, registros_procesados, errores)
-            VALUES (%s, %s, 0, 0)
+            INSERT INTO etl_bitacora (fecha_inicio, estado, registros_procesados, registros_eliminados, errores)
+            VALUES (%s, %s, 0, 0, 0)
             RETURNING ejecucion_id;
             """,
             (inicio, "EN_EJECUCION"),
@@ -47,6 +62,17 @@ def ejecutar_etl():
         map_usuarios = {}
         map_tutores = {}
         map_mascotas = {}  # mongo_id -> (mascota_id_neon, tutor_id_neon)
+
+        # mongo_ids que existen HOY en Mongo (y que se pudieron sincronizar).
+        # Todo lo que en Neon no esté aquí se elimina al final.
+        vistos = {
+            "categorias": set(),
+            "servicios": set(),
+            "tutores": set(),
+            "mascotas": set(),
+            "citas": set(),
+            "historial_clinico": set(),
+        }
 
         # ------------------------------------------------------
         # 1. CATEGORIAS
@@ -71,6 +97,7 @@ def ejecutar_etl():
                 (mid, especie, descripcion, activa),
             )
             map_categorias[mid] = cur.fetchone()[0]
+            vistos["categorias"].add(mid)
             procesados += 1
 
         # ------------------------------------------------------
@@ -100,12 +127,22 @@ def ejecutar_etl():
                 (mid, nombre, tipo, duracion, precio, activo),
             )
             map_servicios[mid] = cur.fetchone()[0]
+            vistos["servicios"].add(mid)
             procesados += 1
 
         # ------------------------------------------------------
         # 3. USUARIOS
+        # Se purgan ANTES de insertar: usuarios.email es UNIQUE, y si en Mongo
+        # borras un usuario y creas otro con el mismo correo (distinto _id),
+        # el INSERT chocaría con la fila vieja que aún no se ha eliminado.
+        # Requiere que citas/historial tengan ON DELETE SET NULL en usuario_id
+        # (ver migracion_fk.sql); sus referencias se re-calculan más abajo.
         # ------------------------------------------------------
-        for doc in mongo_db.usuarios.find():
+        docs_usuarios = list(mongo_db.usuarios.find())
+        ids_usuarios = {_str_id(d.get("_id")) for d in docs_usuarios}
+        eliminados += _purgar_huerfanos(cur, "usuarios", ids_usuarios)
+
+        for doc in docs_usuarios:
             mid = _str_id(doc.get("_id"))
             nombre = _get_any(doc, "nombre", default="Usuario")
             apellidos = _get_any(doc, "apellidos", "apellido", default="")
@@ -171,6 +208,7 @@ def ejecutar_etl():
             )
             tutor_neon_id = cur.fetchone()[0]
             map_tutores[mid] = tutor_neon_id
+            vistos["tutores"].add(mid)
             procesados += 1
 
             # Dirección (si existe objeto direccion)
@@ -196,6 +234,9 @@ def ejecutar_etl():
                         dir_obj.get("cp"),
                     ),
                 )
+            else:
+                # Si el tutor ya no tiene dirección en Mongo, se quita también en Neon
+                cur.execute("DELETE FROM tutor_direcciones WHERE tutor_id = %s;", (tutor_neon_id,))
 
             # Si las mascotas vienen embebidas dentro del documento de tutor
             if isinstance(doc.get("mascotas"), list):
@@ -221,6 +262,8 @@ def ejecutar_etl():
             tutor_neon_id = map_tutores.get(tutor_mid)
             cat_neon_id = map_categorias.get(cat_mid, categoria_fallback)
 
+            # Si no tiene tutor/categoría válidos no se sincroniza, y como no entra
+            # a "vistos", si ya existía en Neon se eliminará en la limpieza final.
             if not mid or not tutor_neon_id or not cat_neon_id:
                 continue
 
@@ -262,6 +305,7 @@ def ejecutar_etl():
             )
             mascota_neon_id = cur.fetchone()[0]
             map_mascotas[mid] = (mascota_neon_id, tutor_neon_id)
+            vistos["mascotas"].add(mid)
             procesados += 1
 
             # Reemplazar alergias limpiamente
@@ -326,6 +370,7 @@ def ejecutar_etl():
                     tipo, motivo, estado, fecha_inicio, fecha_fin, creado_en, actualizado_en,
                 ),
             )
+            vistos["citas"].add(mid)
             procesados += 1
 
         # ------------------------------------------------------
@@ -364,6 +409,10 @@ def ejecutar_etl():
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                 ON CONFLICT (mongo_id) DO UPDATE SET
+                    mascota_id = EXCLUDED.mascota_id,
+                    tutor_id = EXCLUDED.tutor_id,
+                    usuario_id = EXCLUDED.usuario_id,
+                    fecha = EXCLUDED.fecha,
                     motivo_consulta = EXCLUDED.motivo_consulta,
                     diagnostico = EXCLUDED.diagnostico,
                     observaciones = EXCLUDED.observaciones,
@@ -381,6 +430,7 @@ def ejecutar_etl():
                 ),
             )
             historial_neon_id = cur.fetchone()[0]
+            vistos["historial_clinico"].add(mid)
             procesados += 1
 
             # Desanidar síntomas
@@ -405,15 +455,32 @@ def ejecutar_etl():
                             (historial_neon_id, str(t)),
                         )
 
+        # ------------------------------------------------------
+        # 8. LIMPIEZA DE REGISTROS ELIMINADOS EN MONGODB
+        # Hijos primero, padres al final. Las tablas hijas (síntomas,
+        # tratamientos, alergias, direcciones) se limpian por ON DELETE CASCADE.
+        # (usuarios ya se purgó en el paso 3)
+        # ------------------------------------------------------
+        for tabla in [
+            "historial_clinico",
+            "citas",
+            "mascotas",
+            "tutores",
+            "servicios",
+            "categorias",
+        ]:
+            eliminados += _purgar_huerfanos(cur, tabla, vistos[tabla])
+
         # Finalizar bitácora con éxito
         fin = datetime.utcnow()
         cur.execute(
             """
             UPDATE etl_bitacora
-            SET fecha_fin = %s, estado = %s, registros_procesados = %s, errores = %s
+            SET fecha_fin = %s, estado = %s, registros_procesados = %s,
+                registros_eliminados = %s, errores = %s
             WHERE ejecucion_id = %s;
             """,
-            (fin, "SINCRONIZADO", procesados, errores, bitacora_id),
+            (fin, "SINCRONIZADO", procesados, eliminados, errores, bitacora_id),
         )
         conn.commit()
 
@@ -421,6 +488,7 @@ def ejecutar_etl():
             "success": True,
             "estado": "Sincronizado",
             "registros_procesados": procesados,
+            "registros_eliminados": eliminados,
             "errores": errores,
             "ultima_sincronizacion": fin.isoformat(),
         }
@@ -435,10 +503,11 @@ def ejecutar_etl():
                 cur.execute(
                     """
                     UPDATE etl_bitacora
-                    SET fecha_fin = %s, estado = %s, registros_procesados = %s, errores = %s, detalle_error = %s
+                    SET fecha_fin = %s, estado = %s, registros_procesados = %s,
+                        registros_eliminados = %s, errores = %s, detalle_error = %s
                     WHERE ejecucion_id = %s;
                     """,
-                    (fin, "ERROR", procesados, errores, detalle_error, bitacora_id),
+                    (fin, "ERROR", procesados, eliminados, errores, detalle_error, bitacora_id),
                 )
                 conn.commit()
             except Exception:
@@ -447,6 +516,7 @@ def ejecutar_etl():
             "success": False,
             "estado": "Error",
             "registros_procesados": procesados,
+            "registros_eliminados": eliminados,
             "errores": errores,
             "error": detalle_error,
             "ultima_sincronizacion": fin.isoformat(),

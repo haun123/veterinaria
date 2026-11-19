@@ -24,7 +24,7 @@ _scheduler_iniciado = False
 def _correr_etl_seguro():
     """Ejecuta el ETL evitando que dos ejecuciones corran al mismo tiempo."""
     if not _lock_etl.acquire(blocking=False):
-        return {"success": False, "message": "El ETL ya está en ejecución"}
+        return {"success": False, "busy": True, "message": "El ETL ya está en ejecución"}
 
     try:
         ESTADO_ETL["estado"] = "En ejecución"
@@ -34,7 +34,9 @@ def _correr_etl_seguro():
         resultado = ejecutar_etl()
 
         if resultado.get("success"):
-            ESTADO_ETL["fase_animacion"] = "etl_a_postgres"
+            # Si tu frontend espera "etl_a_postgres" para terminar la animación,
+            # cambia esta línea de vuelta a "etl_a_postgres".
+            ESTADO_ETL["fase_animacion"] = "completado"
             ESTADO_ETL["estado"] = "Sincronizado"
             ESTADO_ETL["ultima_sincronizacion"] = resultado.get("ultima_sincronizacion")
             ESTADO_ETL["errores_carga"] = 0
@@ -43,6 +45,14 @@ def _correr_etl_seguro():
             ESTADO_ETL["estado"] = "Error"
             ESTADO_ETL["errores_carga"] = resultado.get("errores", 1)
 
+        ESTADO_ETL["ultimo_resultado"] = resultado
+        return resultado
+    except Exception as e:
+        # Salvaguarda: si algo falla fuera de ejecutar_etl, no dejar el estado en "En ejecución"
+        ESTADO_ETL["fase_animacion"] = "error"
+        ESTADO_ETL["estado"] = "Error"
+        ESTADO_ETL["errores_carga"] = 1
+        resultado = {"success": False, "estado": "Error", "errores": 1, "error": str(e)}
         ESTADO_ETL["ultimo_resultado"] = resultado
         return resultado
     finally:
@@ -69,7 +79,12 @@ def iniciar_scheduler_etl():
 @etl_bp.route("/etl/ejecutar", methods=["POST"])
 def endpoint_ejecutar_etl():
     res = _correr_etl_seguro()
-    code = 200 if res.get("success") else 500
+    if res.get("success"):
+        code = 200
+    elif res.get("busy"):
+        code = 409  # ya hay un ETL corriendo, no es un error del ETL
+    else:
+        code = 500
     return jsonify(res), code
 
 
@@ -81,13 +96,11 @@ def endpoint_estado_general():
     # 1. Conteos en MongoDB
     mongo_db = get_mongo_db()
     colecciones = ["categorias", "servicios", "usuarios", "tutores", "mascotas", "citas", "historial"]
+    existentes = set(mongo_db.list_collection_names())
     conteo_mongo = {}
     total_mongo = 0
     for col in colecciones:
-        if col in mongo_db.list_collection_names():
-            c = mongo_db[col].count_documents({})
-        else:
-            c = 0
+        c = mongo_db[col].count_documents({}) if col in existentes else 0
         conteo_mongo[col] = c
         total_mongo += c
 
@@ -114,7 +127,7 @@ def endpoint_estado_general():
                 tablas_con_datos += 1
 
         cur.execute("""
-            SELECT fecha_fin, estado, registros_procesados, errores
+            SELECT fecha_fin, estado, registros_procesados, registros_eliminados, errores
             FROM etl_bitacora
             ORDER BY ejecucion_id DESC
             LIMIT 1;
@@ -125,7 +138,8 @@ def endpoint_estado_general():
                 "fecha_fin": fila[0].isoformat() if fila[0] else None,
                 "estado": fila[1],
                 "registros_procesados": fila[2],
-                "errores": fila[3],
+                "registros_eliminados": fila[3],
+                "errores": fila[4],
             }
             if not ESTADO_ETL["ultima_sincronizacion"] and fila[0]:
                 ESTADO_ETL["ultima_sincronizacion"] = fila[0].isoformat()
@@ -164,5 +178,6 @@ def endpoint_estado_general():
             "fase_animacion": ESTADO_ETL["fase_animacion"],
             "ciclo_id": ESTADO_ETL["ciclo_id"],
             "ultima_bitacora": ultima_bitacora,
+            "ultimo_resultado": ESTADO_ETL["ultimo_resultado"],  # incluye registros_eliminados
         }
     }), 200
