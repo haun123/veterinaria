@@ -23,7 +23,7 @@ db = client["veterinaria"]
 
 @app.route('/')
 def index():
-    return render_template('bots_dashboard.html')
+    return render_template('dashboard.html')
 
 # ==========================================
 # Rutas para obtener la informacion mostrada en el dashboard

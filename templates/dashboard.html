@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard de Simulación — Bots & ETL</title>
+  <style>
+    :root {
+      --z950:#09090b; --z900:#18181b; --z800:#27272a; --z700:#3f3f46; --z600:#52525b;
+      --z500:#71717a; --z400:#a1a1aa; --z300:#d4d4d8;
+      --green:#22c55e; --green4:#4ade80; --red:#ef4444; --red4:#f87171;
+      --blue:#3b82f6; --blue4:#60a5fa; --amber:#f59e0b; --amber4:#fbbf24;
+    }
+    * { box-sizing:border-box; font-family:system-ui,-apple-system,sans-serif; }
+    body { background:var(--z950); color:#f4f4f5; margin:0; padding:24px; }
+    svg.ic { fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+    button { cursor:pointer; border:none; font-family:inherit; }
+    button:disabled { opacity:.4; cursor:not-allowed; }
+
+    header { display:flex; flex-wrap:wrap; gap:12px; justify-content:space-between; align-items:center; margin-bottom:28px; }
+    header h1 { font-size:1.25rem; margin:0; }
+    header h1 small { display:block; font-size:.78rem; font-weight:400; color:var(--z400); margin-top:2px; }
+    .btn-etl { display:flex; align-items:center; gap:8px; background:var(--blue); color:#fff; padding:9px 16px; border-radius:8px; font-weight:600; font-size:.85rem; transition:background .2s; }
+    .btn-etl:hover:not(:disabled) { background:#2563eb; }
+
+    section { margin-bottom:32px; }
+    .sec-title { font-size:.75rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--z500); margin:0 0 12px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; }
+    .sec-title .flujo-txt { text-transform:none; letter-spacing:0; font-weight:400; font-size:.8rem; color:var(--blue4); }
+    .legend { display:flex; gap:14px; text-transform:none; letter-spacing:0; font-weight:400; font-size:.75rem; color:var(--z400); }
+    .legend span { display:flex; align-items:center; gap:6px; }
+    .legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+    /* ---------- Flujo ---------- */
+    .flow-wrap { background:var(--z900); border:1px solid var(--z800); border-radius:16px; overflow-x:auto; }
+    .flow { position:relative; min-width:1120px; padding:28px; display:flex; align-items:center; justify-content:space-between; }
+    .flow svg.lines { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; overflow:visible; }
+    .flow > *:not(svg) { position:relative; z-index:1; }
+
+    .line { color:var(--z700); }
+    .line.st-wait { color:var(--amber); }
+    .line.st-ok { color:var(--green); }
+    .line.st-err { color:var(--red); }
+    .line .base { fill:none; stroke:currentColor; stroke-width:3; stroke-linecap:round; opacity:.6; transition:stroke .3s; }
+    .line .dash { fill:none; stroke:#fafafa; stroke-width:3; stroke-dasharray:6 16; stroke-linecap:round; opacity:0; }
+    .line.flowing .dash { opacity:.9; animation:dashmove .7s linear infinite; }
+    .line.flowing .base { opacity:1; filter:drop-shadow(0 0 4px currentColor); }
+    @keyframes dashmove { to { stroke-dashoffset:-22; } }
+
+    /* estados compartidos por nodos y bots */
+    .st-idle { border-color:var(--z800); }
+    .st-wait { border-color:rgba(245,158,11,.7) !important; box-shadow:0 0 14px rgba(245,158,11,.22); }
+    .st-ok   { border-color:rgba(34,197,94,.65) !important; box-shadow:0 0 14px rgba(34,197,94,.2); }
+    .st-err  { border-color:rgba(239,68,68,.75) !important; box-shadow:0 0 14px rgba(239,68,68,.28); }
+
+    .bots-col { display:flex; flex-direction:column; gap:14px; }
+    .bot-card { display:flex; flex-direction:column; justify-content:space-between; width:224px; height:152px; padding:14px; border-radius:16px; border:1px solid var(--z800); background:var(--z950); transition:border-color .25s, box-shadow .25s; }
+    .bot-top { display:flex; justify-content:space-between; align-items:center; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:.72rem; font-weight:500; background:var(--z800); color:var(--z400); }
+    .pill i { width:6px; height:6px; border-radius:50%; background:var(--z500); }
+    .st-wait .pill { background:rgba(245,158,11,.15); color:var(--amber4); }
+    .st-wait .pill i { background:var(--amber4); animation:blink 1s infinite; }
+    .st-ok .pill { background:rgba(34,197,94,.15); color:var(--green4); }
+    .st-ok .pill i { background:var(--green4); }
+    .st-err .pill { background:rgba(239,68,68,.15); color:var(--red4); }
+    .st-err .pill i { background:var(--red4); }
+    @keyframes blink { 50% { opacity:.25; } }
+    .icon-btn { background:transparent; color:var(--z400); padding:6px; border-radius:6px; display:flex; }
+    .icon-btn:hover { background:var(--z800); color:#fff; }
+    .bot-mid { display:flex; align-items:center; justify-content:center; gap:8px; }
+    .bot-mid svg { color:var(--z500); }
+    .st-wait .bot-mid svg { color:var(--amber4); } .st-ok .bot-mid svg { color:var(--green4); } .st-err .bot-mid svg { color:var(--red4); }
+    .bot-mid .name { font-size:1rem; font-weight:600; }
+    .toggle { display:flex; align-items:center; justify-content:center; gap:8px; padding:7px 14px; border-radius:8px; font-size:.82rem; font-weight:500; transition:background .2s; background:var(--green); color:var(--z950); }
+    .toggle:hover { background:var(--green4); }
+    .bot-card.act .toggle { background:rgba(239,68,68,.15); color:var(--red4); }
+    .bot-card.act .toggle:hover { background:rgba(239,68,68,.25); }
+
+    .fnode { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; width:150px; height:118px; padding:12px; border-radius:16px; border:2px solid var(--z800); background:var(--z950); text-align:center; transition:border-color .25s, box-shadow .25s; }
+    .fnode svg { color:var(--z500); }
+    .fnode.st-wait svg { color:var(--amber4); animation:blink 1s infinite; }
+    .fnode.st-ok svg { color:var(--green4); }
+    .fnode.st-err svg { color:var(--red4); }
+    .fnode b { font-size:.85rem; }
+    .fnode small { font-size:.7rem; color:var(--z500); }
+    .fstate { margin-top:2px; font-size:.72rem; font-weight:600; color:var(--z400); }
+    .st-wait .fstate { color:var(--amber4); } .st-ok .fstate { color:var(--green4); } .st-err .fstate { color:var(--red4); }
+
+    /* ---------- DB cards ---------- */
+    .row { display:flex; flex-wrap:wrap; gap:16px; }
+    .db-card { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; width:208px; height:176px; padding:16px; border-radius:16px; border:1px solid var(--z800); background:var(--z900); transition:border-color .2s; }
+    .db-card.on { border-color:rgba(34,197,94,.5); }
+    .db-card svg { color:var(--z500); }
+    .db-card.on svg { color:var(--green4); }
+    .db-card .name { font-weight:600; margin:0; }
+    .db-card .pill { padding:2px 10px; }
+    .db-card.on .pill { background:rgba(34,197,94,.15); color:var(--green4); }
+    .db-card .det { display:flex; align-items:center; gap:6px; margin-top:4px; padding:4px 8px; border-radius:6px; font-size:.75rem; background:transparent; color:var(--z400); }
+    .db-card .det:hover { background:var(--z800); color:#fff; }
+
+    .sync-card { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; width:240px; height:176px; padding:16px; border-radius:16px; border:1px solid var(--z800); background:var(--z900); }
+    .sync-card .lbl { font-size:.75rem; color:var(--z400); }
+    .sync-card .big { font-size:1.05rem; font-weight:700; }
+    .sync-card .sub { font-size:.75rem; color:var(--z500); }
+    .conn { display:flex; align-items:center; gap:4px; }
+    .conn span { height:12px; width:20px; border-radius:999px; background:var(--green); transition:background .3s; }
+    .conn.wait span { background:var(--amber); animation:blink 1s infinite; }
+    .conn.wait span:nth-child(2) { animation-delay:.15s; } .conn.wait span:nth-child(3) { animation-delay:.3s; }
+    .conn.wait span:nth-child(4) { animation-delay:.45s; } .conn.wait span:nth-child(5) { animation-delay:.6s; }
+    .conn.err span { background:var(--red); }
+    .big.ok { color:var(--green4); } .big.wait { color:var(--amber4); } .big.err { color:var(--red4); }
+
+    /* ---------- Métricas ---------- */
+    .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+    .card { background:var(--z900); border:1px solid var(--z800); border-radius:16px; padding:18px; }
+    .card h2 { font-size:.75rem; margin:0 0 12px; color:var(--z400); text-transform:uppercase; letter-spacing:.06em; }
+    .metrics-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+    .metrics-grid.c3 { grid-template-columns:repeat(3,1fr); }
+    .metric { background:var(--z950); padding:12px; border-radius:12px; border:1px solid var(--z800); }
+    .metric span { display:block; font-size:.72rem; color:var(--z400); }
+    .metric strong { font-size:1.4rem; color:#f4f4f5; }
+    .tags { margin-top:12px; font-size:.78rem; color:var(--z300); display:flex; flex-wrap:wrap; gap:6px; }
+    .tag { background:var(--z950); border:1px solid var(--z800); padding:3px 8px; border-radius:6px; }
+
+    #log-eventos { background:#000; border:1px solid var(--z800); border-radius:12px; padding:12px; height:140px; overflow-y:auto; font-family:ui-monospace,monospace; font-size:.78rem; color:var(--z400); }
+    #log-eventos div { font-family:inherit; }
+
+    /* ---------- Modal ---------- */
+    .overlay { position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.7); padding:16px; }
+    .overlay.open { display:flex; }
+    .modal { width:100%; max-width:448px; border-radius:16px; border:1px solid var(--z800); background:var(--z900); padding:24px; }
+    .modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .modal-head h2 { margin:0; font-size:1.1rem; font-weight:600; }
+    .modal-head button { background:transparent; color:var(--z400); padding:4px; border-radius:6px; display:flex; }
+    .modal-head button:hover { background:var(--z800); color:#fff; }
+    .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .stat { display:flex; flex-direction:column; align-items:center; gap:4px; padding:16px; border-radius:12px; border:1px solid var(--z800); background:var(--z950); }
+    .stat b { font-size:1.5rem; color:var(--z300); }
+    .stat b.empty { color:var(--z600); }
+    .stat small { font-size:.72rem; color:var(--z400); }
+
+    @media (max-width:900px) { .grid-2 { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Dashboard de Simulación
+      <small>CRUD & ETL · MongoDB → Neon PostgreSQL</small>
+    </h1>
+    <button class="btn-etl" id="btn-forzar-etl" onclick="ejecutarETLManual()">
+      <svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+      Sincronizar ahora (ETL)
+    </button>
+  </header>
+
+  <!-- FLUJO UNIFICADO -->
+  <section>
+    <h3 class="sec-title">
+      <span>Flujo de datos en tiempo real</span>
+      <span id="texto-flujo" class="flujo-txt">En espera de actividad...</span>
+      <span class="legend">
+        <span><i style="background:var(--green)"></i>Completado</span>
+        <span><i style="background:var(--amber)"></i>En espera</span>
+        <span><i style="background:var(--red)"></i>Error</span>
+        <span><i style="background:var(--z600)"></i>Inactivo</span>
+      </span>
+    </h3>
+    <div class="flow-wrap">
+      <div class="flow" id="flow">
+        <svg class="lines" id="lines"></svg>
+
+        <div class="bots-col" id="bots-col"></div>
+
+        <div class="fnode st-idle" id="node-api">
+          <svg class="ic" width="28" height="28" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+          <b>API Flask</b><small>REST / JSON</small><span class="fstate" id="fs-api"></span>
+        </div>
+
+        <div class="fnode st-idle" id="node-mongo">
+          <svg class="ic" width="28" height="28" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+          <b>MongoDB</b><small id="sub-mongo">0 docs</small><span class="fstate" id="fs-mongo"></span>
+        </div>
+
+        <div class="fnode st-idle" id="node-etl">
+          <svg class="ic" width="28" height="28" viewBox="0 0 24 24"><path d="M17 3l4 4-4 4"/><path d="M21 7H9a4 4 0 0 0-4 4"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h12a4 4 0 0 0 4-4"/></svg>
+          <b>Pipeline ETL</b><small>Cada 60s / Manual</small><span class="fstate" id="fs-etl"></span>
+        </div>
+
+        <div class="fnode st-idle" id="node-pg">
+          <svg class="ic" width="28" height="28" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+          <b>PostgreSQL</b><small id="sub-pg">0 regs</small><span class="fstate" id="fs-pg"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BASES DE DATOS + SINCRONIZACIÓN -->
+  <section>
+    <h3 class="sec-title">Bases de datos</h3>
+    <div class="row">
+      <div class="db-card" id="db-mongo">
+        <svg class="ic" width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+        <p class="name">MongoDB</p>
+        <span class="pill" id="db-mongo-pill">Inactiva</span>
+        <button class="det" onclick="abrirModal('mongo')">
+          <svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Detalles
+        </button>
+      </div>
+      <div class="db-card" id="db-pg">
+        <svg class="ic" width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+        <p class="name">PostgreSQL</p>
+        <span class="pill" id="db-pg-pill">Inactiva</span>
+        <button class="det" onclick="abrirModal('pg')">
+          <svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Detalles
+        </button>
+      </div>
+      <div class="sync-card">
+        <span class="lbl">Estado de sincronización</span>
+        <div class="conn ok" id="sync-conn"><span></span><span></span><span></span><span></span><span></span></div>
+        <span class="big ok" id="sync-text">Sincronizado</span>
+        <span class="sub" id="sync-sub">0 documentos pendientes</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- MÉTRICAS -->
+  <section>
+    <h3 class="sec-title">Métricas</h3>
+    <div class="grid-2">
+      <div class="card">
+        <h2>MongoDB (Origen NoSQL)</h2>
+        <div class="metrics-grid c3">
+          <div class="metric"><span>Documentos totales</span><strong id="m-totales">0</strong></div>
+          <div class="metric"><span>Documentos sincronizados</span><strong id="m-sinc">0</strong></div>
+          <div class="metric"><span>Pendientes por migrar</span><strong id="m-pend">0</strong></div>
+        </div>
+        <div class="tags" id="lista-colecciones"></div>
+      </div>
+
+      <div class="card">
+        <h2>Neon PostgreSQL (Destino Relacional)</h2>
+        <div class="metrics-grid">
+          <div class="metric"><span>Registros totales</span><strong id="pg-totales">0</strong></div>
+          <div class="metric"><span>Tablas sincronizadas</span><strong id="pg-tablas">0 / 11</strong></div>
+          <div class="metric"><span>Errores de carga</span><strong id="pg-errores">0</strong></div>
+          <div class="metric"><span>Última sincronización</span><strong id="pg-ultima" style="font-size:1rem;">Nunca</strong></div>
+        </div>
+        <div class="tags" id="lista-tablas"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3 class="sec-title">Bitácora en vivo</h3>
+    <div id="log-eventos"></div>
+  </section>
+
+  <!-- MODAL -->
+  <div class="overlay" id="overlay" onclick="cerrarModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <h2 id="modal-title"></h2>
+        <button onclick="cerrarModal()" aria-label="Cerrar">
+          <svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="stats" id="modal-stats"></div>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    /* ---------- Iconos ---------- */
+    const ICONS = {
+      bot: '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+      chart: '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+      play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+      square: '<rect width="18" height="18" x="3" y="3" rx="2"/>',
+      send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+      ok: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+      fail: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+      download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'
+    };
+    const ico = (n, s = 18) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24">${ICONS[n]}</svg>`;
+
+    /* ---------- Estado global ---------- */
+    const BOTS = [
+      { id: "bot1", name: "Bot 1 — Citas" },
+      { id: "bot2", name: "Bot 2 — Historial" },
+      { id: "bot3", name: "Bot 3 — Mixto" }
+    ];
+    const LBL = { idle: "Inactivo", wait: "En espera", ok: "Completado", err: "Error" };
+    const STS = ["st-idle", "st-wait", "st-ok", "st-err"];
+
+    // Estado visual de cada elemento: idle | wait | ok | err
+    const S = { bot1: "idle", bot2: "idle", bot3: "idle", api: "idle", mongo: "idle", etl: "idle", pg: "idle" };
+    const TXT = { api: "", mongo: "", etl: "", pg: "" };   // texto personalizado bajo cada nodo
+    // Estado visual de cada línea
+    const L = { "l-bot1": "idle", "l-bot2": "idle", "l-bot3": "idle", "l-api-mongo": "idle", "l-mongo-etl": "idle", "l-etl-pg": "idle" };
+    const flowUntil = {};  // animación temporal por evento
+    const hold = {};       // animación continua (ETL en ejecución)
+
+    const ultimosEventosBots = { bot1: 0, bot2: 0, bot3: 0 };
+    let ultimoCicloETL = 0;
+    let ultimoEstadoBots = {};
+    let ultimoEstadoGlobal = null;
+    let modalActual = null;
+    let etlManual = false;
+    let etlErrorLocal = false;
+    let mongoDocs = 0;
+
+    /* ---------- Render inicial: bots ---------- */
+    $("bots-col").innerHTML = BOTS.map(b => `
+      <div class="bot-card st-idle" id="card-${b.id}">
+        <div class="bot-top">
+          <span class="pill"><i></i><span id="st-${b.id}">Inactivo</span></span>
+          <button class="icon-btn" onclick="abrirModal('bot','${b.id}')" aria-label="Ver detalles de ${b.name}">${ico("chart")}</button>
+        </div>
+        <div class="bot-mid">${ico("bot", 26)}<span class="name">${b.name}</span></div>
+        <button class="toggle" onclick="toggleBot('${b.id}')">
+          <span id="toggle-ic-${b.id}">${ico("play", 16)}</span><span id="toggle-tx-${b.id}">Iniciar</span>
+        </button>
+      </div>`).join("");
+
+    /* ---------- Líneas SVG ---------- */
+    const LINE_IDS = Object.keys(L);
+    $("lines").innerHTML = LINE_IDS.map(id =>
+      `<g id="${id}" class="line st-idle"><path class="base"/><path class="dash"/></g>`).join("");
+
+    function trazar() {
+      const flow = $("flow");
+      const c = flow.getBoundingClientRect();
+      const pt = (el, lado) => {
+        const r = el.getBoundingClientRect();
+        return { x: (lado === "r" ? r.right : r.left) - c.left, y: r.top + r.height / 2 - c.top };
+      };
+      const svg = $("lines");
+      svg.setAttribute("viewBox", `0 0 ${c.width} ${c.height}`);
+
+      const set = (lineId, a, b) => {
+        const m = (a.x + b.x) / 2;
+        const d = Math.abs(a.y - b.y) < 1
+          ? `M${a.x},${a.y} L${b.x},${b.y}`
+          : `M${a.x},${a.y} C${m},${a.y} ${m},${b.y} ${b.x},${b.y}`;
+        $(lineId).querySelectorAll("path").forEach(p => p.setAttribute("d", d));
+      };
+
+      BOTS.forEach(b => set(`l-${b.id}`, pt($(`card-${b.id}`), "r"), pt($("node-api"), "l")));
+      set("l-api-mongo", pt($("node-api"), "r"), pt($("node-mongo"), "l"));
+      set("l-mongo-etl", pt($("node-mongo"), "r"), pt($("node-etl"), "l"));
+      set("l-etl-pg", pt($("node-etl"), "r"), pt($("node-pg"), "l"));
+    }
+    new ResizeObserver(trazar).observe($("flow"));
+    window.addEventListener("resize", trazar);
+
+    /* ---------- Pintado ---------- */
+    function setCls(el, st) {
+      STS.forEach(c => el.classList.remove(c));
+      el.classList.add("st-" + st);
+    }
+
+    function pintar() {
+      const now = Date.now();
+      BOTS.forEach(b => {
+        setCls($(`card-${b.id}`), S[b.id]);
+        const info = ultimoEstadoBots[b.id];
+        $(`card-${b.id}`).classList.toggle("act", !!(info && info.activo));
+        $(`st-${b.id}`).textContent = LBL[S[b.id]];
+      });
+      ["api", "mongo", "etl", "pg"].forEach(k => {
+        setCls($("node-" + k), S[k]);
+        $("fs-" + k).textContent = TXT[k] || LBL[S[k]];
+      });
+      LINE_IDS.forEach(id => {
+        const g = $(id);
+        setCls(g, L[id]);
+        g.classList.toggle("flowing", now < (flowUntil[id] || 0) || !!hold[id]);
+      });
+    }
+
+    function flash(id, ms) {
+      flowUntil[id] = Date.now() + ms;
+      setTimeout(pintar, ms + 30);
+    }
+
+    function logMsg(texto) {
+      const box = $("log-eventos");
+      const d = document.createElement("div");
+      d.textContent = `[${new Date().toLocaleTimeString()}] ${texto}`;
+      box.prepend(d);
+      while (box.children.length > 200) box.removeChild(box.lastChild);
+    }
+
+    /* ---------- Modal ---------- */
+    function abrirModal(tipo, id) { modalActual = { tipo, id }; $("overlay").classList.add("open"); renderModal(); }
+    function cerrarModal() { modalActual = null; $("overlay").classList.remove("open"); }
+    document.addEventListener("keydown", e => { if (e.key === "Escape") cerrarModal(); });
+
+    function statHTML(label, icon, color, valor) {
+      const vacio = valor === null || valor === undefined;
+      return `<div class="stat"><span style="color:${color}">${ico(icon, 20)}</span>
+        <b class="${vacio ? "empty" : ""}">${vacio ? "—" : valor}</b><small>${label}</small></div>`;
+    }
+
+    function renderModal() {
+      if (!modalActual) return;
+      const { tipo, id } = modalActual;
+      const g = ultimoEstadoGlobal;
+      let titulo = "", html = "";
+      if (tipo === "bot") {
+        const info = ultimoEstadoBots[id];
+        titulo = `${BOTS.find(x => x.id === id).name} · Detalles`;
+        const ex = info ? info.exitosas : null, fa = info ? info.fallidas : null;
+        html = statHTML("Enviados", "send", "var(--blue4)", info ? ex + fa : null)
+             + statHTML("Exitosos", "ok", "var(--green4)", ex)
+             + statHTML("Fallidos", "fail", "var(--red4)", fa);
+      } else if (tipo === "mongo") {
+        titulo = "MongoDB · Detalles";
+        const m = g && g.mongodb;
+        const bi = Object.values(ultimoEstadoBots);
+        html = statHTML("Recibidos", "download", "var(--blue4)", bi.length ? bi.reduce((s, x) => s + x.exitosas + x.fallidas, 0) : null)
+             + statHTML("Agregados", "ok", "var(--green4)", m ? m.documentos_totales : null)
+             + statHTML("Fallidos", "fail", "var(--red4)", bi.length ? bi.reduce((s, x) => s + x.fallidas, 0) : null);
+      } else if (tipo === "pg") {
+        titulo = "PostgreSQL · Detalles";
+        const m = g && g.mongodb, pg = g && g.postgresql;
+        html = statHTML("Recibidos", "download", "var(--blue4)", m ? m.documentos_sincronizados : null)
+             + statHTML("Agregados", "ok", "var(--green4)", pg ? pg.registros_totales : null)
+             + statHTML("Fallidos", "fail", "var(--red4)", pg ? pg.errores_carga : null);
+      }
+      $("modal-title").textContent = titulo;
+      $("modal-stats").innerHTML = html;
+    }
+
+    /* ---------- Bots ---------- */
+    function toggleBot(botId) {
+      const info = ultimoEstadoBots[botId];
+      controlBot(botId, info && info.activo ? "detener" : "iniciar");
+    }
+
+    async function controlBot(botId, accion) {
+      try {
+        const res = await fetch(`/api/bots/${botId}/${accion}`, { method: "POST" });
+        const data = await res.json();
+        logMsg(`${botId.toUpperCase()}: ${data.message || data.error}`);
+        actualizarBots();
+      } catch (e) { logMsg(`Error controlando ${botId}: ${e}`); }
+    }
+
+    // Un evento nuevo de un bot mueve el color/animación a lo largo del flujo
+    function procesarEvento(botId, info) {
+      const lb = "l-" + botId;
+      if (info.fase === "enviando_api") {
+        S[botId] = "wait"; L[lb] = "wait"; flash(lb, 1200);
+        S.api = "wait"; TXT.api = "Recibiendo…";
+        L["l-api-mongo"] = "wait"; S.mongo = "wait"; TXT.mongo = "Esperando…";
+        $("texto-flujo").textContent = `${botId.toUpperCase()} enviando ${info.operacion} a la API...`;
+      } else if (info.fase === "guardado_mongo") {
+        S[botId] = "ok"; L[lb] = "ok"; flash(lb, 900);
+        S.api = "ok"; TXT.api = "";
+        L["l-api-mongo"] = "ok"; flash("l-api-mongo", 1300);
+        S.mongo = "ok"; TXT.mongo = "Guardado";
+        $("texto-flujo").textContent = `API guardó en MongoDB: ${info.detalle}`;
+        logMsg(`${botId.toUpperCase()} -> MongoDB: ${info.detalle}`);
+        actualizarMetricas();
+      } else if (info.fase === "error") {
+        S[botId] = "err"; L[lb] = "err"; flash(lb, 900);
+        S.api = "err"; TXT.api = "Error"; L["l-api-mongo"] = "idle";
+        S.mongo = mongoDocs > 0 ? "ok" : "idle"; TXT.mongo = "";
+        $("texto-flujo").textContent = `Error en ${botId.toUpperCase()}`;
+        logMsg(`ERROR ${botId.toUpperCase()}: ${info.detalle}`);
+      }
+    }
+
+    async function actualizarBots() {
+      try {
+        const res = await fetch("/api/bots/estado");
+        const data = await res.json();
+        if (!data.success) return;
+        ultimoEstadoBots = data.bots;
+
+        for (const [botId, info] of Object.entries(data.bots)) {
+          if (!(botId in S)) continue;
+          if (info.evento_id > ultimosEventosBots[botId]) {
+            ultimosEventosBots[botId] = info.evento_id;
+            procesarEvento(botId, info);
+          }
+          if (!info.activo) { S[botId] = "idle"; L["l-" + botId] = "idle"; }
+          else if (S[botId] === "idle") { S[botId] = "wait"; L["l-" + botId] = "wait"; }
+
+          $(`toggle-ic-${botId}`).innerHTML = ico(info.activo ? "square" : "play", 16);
+          $(`toggle-tx-${botId}`).textContent = info.activo ? "Detener" : "Iniciar";
+        }
+        pintar();
+        renderModal();
+      } catch (e) { /* silencio en polling */ }
+    }
+
+    /* ---------- ETL ---------- */
+    async function ejecutarETLManual() {
+      const btn = $("btn-forzar-etl");
+      btn.disabled = true;
+      etlManual = true; etlErrorLocal = false;
+      derivarSync();
+      $("texto-flujo").textContent = "ETL extrayendo de MongoDB y cargando en Neon PostgreSQL...";
+      logMsg("Iniciando sincronización ETL manual...");
+      try {
+        const res = await fetch("/api/etl/ejecutar", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          logMsg(`ETL completado: ${data.registros_procesados} registros sincronizados.`);
+          $("texto-flujo").textContent = `Sincronizado (${data.registros_procesados} registros)`;
+        } else {
+          etlErrorLocal = true;
+          logMsg(`Error en ETL: ${data.error}`);
+        }
+      } catch (e) {
+        etlErrorLocal = true;
+        logMsg(`Fallo de red en ETL: ${e}`);
+      } finally {
+        etlManual = false;
+        btn.disabled = false;
+        await actualizarMetricas();
+        flash("l-mongo-etl", 1500); flash("l-etl-pg", 1500);
+      }
+    }
+
+    /* Deriva ETL, PostgreSQL y el indicador de sincronización del estado real */
+    function derivarSync() {
+      const g = ultimoEstadoGlobal;
+      if (!g) { pintar(); return; }
+      const m = g.mongodb, pg = g.postgresql;
+      const pend = Math.max(0, m.documentos_totales - m.documentos_sincronizados);
+      const corriendo = etlManual || g.etl.estado === "En ejecución";
+      const error = !corriendo && (etlErrorLocal || g.etl.estado === "Error");
+
+      hold["l-mongo-etl"] = hold["l-etl-pg"] = corriendo;
+      let sync; // ok | wait | err
+      let syncTxt;
+
+      if (corriendo) {
+        S.etl = "wait"; TXT.etl = "Ejecutando…";
+        S.pg = "wait"; TXT.pg = "Recibiendo…";
+        L["l-mongo-etl"] = "wait"; L["l-etl-pg"] = "wait";
+        sync = "wait"; syncTxt = "En ejecución";
+      } else if (error) {
+        S.etl = "err"; TXT.etl = "Error";
+        S.pg = "wait"; TXT.pg = "Desactualizado";
+        L["l-mongo-etl"] = "err"; L["l-etl-pg"] = "err";
+        sync = "err"; syncTxt = "Error";
+      } else if (pend > 0) {
+        S.etl = "wait"; TXT.etl = "Pendiente";
+        S.pg = "wait"; TXT.pg = "Desactualizado";
+        L["l-mongo-etl"] = "wait"; L["l-etl-pg"] = "wait";
+        sync = "wait"; syncTxt = "Desincronizado";
+      } else if (m.documentos_totales > 0 || pg.registros_totales > 0) {
+        S.etl = "ok"; TXT.etl = "Sincronizado";
+        S.pg = "ok"; TXT.pg = "Sincronizado";
+        L["l-mongo-etl"] = "ok"; L["l-etl-pg"] = "ok";
+        sync = "ok"; syncTxt = "Sincronizado";
+      } else {
+        S.etl = "idle"; TXT.etl = ""; S.pg = "idle"; TXT.pg = "";
+        L["l-mongo-etl"] = "idle"; L["l-etl-pg"] = "idle";
+        sync = "ok"; syncTxt = "Sincronizado";
+      }
+
+      $("sync-conn").className = "conn " + sync;
+      $("sync-text").className = "big " + sync;
+      $("sync-text").textContent = syncTxt;
+      $("sync-sub").textContent = `${pend} documento${pend === 1 ? "" : "s"} pendiente${pend === 1 ? "" : "s"}`;
+      pintar();
+    }
+
+    /* ---------- Métricas ---------- */
+    async function actualizarMetricas() {
+      try {
+        const res = await fetch("/api/estado");
+        const data = await res.json();
+        if (!data.success) return;
+        ultimoEstadoGlobal = data;
+
+        const m = data.mongodb;
+        mongoDocs = m.documentos_totales;
+        $("m-totales").textContent = m.documentos_totales;
+        $("m-sinc").textContent = m.documentos_sincronizados;
+        $("m-pend").textContent = Math.max(0, m.documentos_totales - m.documentos_sincronizados);
+        $("sub-mongo").textContent = `${m.documentos_totales} docs`;
+        $("lista-colecciones").innerHTML = Object.entries(m.detalle_colecciones)
+          .map(([k, v]) => `<span class="tag">${k}: <b>${v}</b></span>`).join("");
+
+        const pg = data.postgresql;
+        $("pg-totales").textContent = pg.registros_totales;
+        $("pg-tablas").textContent = pg.tablas_sincronizadas;
+        $("pg-errores").textContent = pg.errores_carga;
+        $("pg-ultima").textContent = pg.ultima_sincronizacion
+          ? new Date(pg.ultima_sincronizacion + "Z").toLocaleTimeString() : "Pendiente";
+        $("sub-pg").textContent = `${pg.registros_totales} regs`;
+        $("lista-tablas").innerHTML = Object.entries(pg.detalle_tablas)
+          .map(([k, v]) => `<span class="tag">${k}: <b>${v}</b></span>`).join("");
+
+        const mongoOn = m.documentos_totales > 0, pgOn = pg.registros_totales > 0;
+        $("db-mongo").classList.toggle("on", mongoOn);
+        $("db-mongo-pill").textContent = mongoOn ? "Activa" : "Inactiva";
+        $("db-pg").classList.toggle("on", pgOn);
+        $("db-pg-pill").textContent = pgOn ? "Activa" : "Inactiva";
+
+        // MongoDB: verde si tiene datos y no hay un guardado en curso
+        if (S.mongo === "idle" && mongoOn) { S.mongo = "ok"; TXT.mongo = ""; }
+        if (S.mongo === "ok" && TXT.mongo === "Guardado") TXT.mongo = "";
+
+        if (data.etl.ciclo_id > ultimoCicloETL) {
+          if (ultimoCicloETL > 0) {
+            logMsg("Sincronización ETL automática (60s) completada.");
+            flash("l-mongo-etl", 2000); flash("l-etl-pg", 2000);
+          }
+          ultimoCicloETL = data.etl.ciclo_id;
+          etlErrorLocal = false;
+        }
+        derivarSync();
+        renderModal();
+      } catch (e) { /* silencio en polling */ }
+    }
+
+    setInterval(actualizarBots, 1000);
+    setInterval(actualizarMetricas, 5000);
+    trazar();
+    actualizarBots();
+    actualizarMetricas();
+    requestAnimationFrame(trazar);
+  </script>
+</body>
+</html>
