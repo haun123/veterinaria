@@ -42,6 +42,9 @@
     .line.st-wait { color:var(--amber); }
     .line.st-ok { color:var(--green); }
     .line.st-err { color:var(--red); }
+    /* Líneas "quiet": siempre grises; solo se ve la animación de puntos mientras algo viaja */
+    .line.quiet { color:var(--z700) !important; }
+    .line.quiet.flowing { color:var(--amber) !important; }
     .line .base { fill:none; stroke:currentColor; stroke-width:3; stroke-linecap:round; opacity:.6; transition:stroke .3s; }
     .line .dash { fill:none; stroke:#fafafa; stroke-width:3; stroke-dasharray:6 16; stroke-linecap:round; opacity:0; }
     .line.flowing .dash { opacity:.9; animation:dashmove .7s linear infinite; }
@@ -370,8 +373,11 @@
 
     /* ---------- Líneas SVG ---------- */
     const LINE_IDS = Object.keys(L);
+    // Líneas "quiet": API -> MongoDB, MongoDB -> ETL y ETL -> PostgreSQL.
+    // Se quedan grises; solo muestran la animación de puntos mientras algo viaja por ellas.
+    const esQuiet = id => id.startsWith("l-am-") || id === "l-mA-etl" || id === "l-mB-etl" || id === "l-etl-pg";
     $("lines").innerHTML = LINE_IDS.map(id =>
-      `<g id="${id}" class="line st-idle"><path class="base"/><path class="dash"/></g>`).join("");
+      `<g id="${id}" class="line st-idle ${esQuiet(id) ? "quiet" : ""}"><path class="base"/><path class="dash"/></g>`).join("");
 
     function trazar() {
       const flow = $("flow");
@@ -503,6 +509,7 @@
       pintar();
     }
     // En reposo, el carril API -> MongoDB queda verde si ese cluster ya tiene datos
+    // (visualmente no se nota: las líneas "quiet" siempre se ven grises)
     function reposoCarriles() {
       BOTS.forEach(b => {
         const la = "l-am-" + b.id;
@@ -532,7 +539,8 @@
       if (info.fase === "enviando_api") {
         S[botId] = "wait"; L[lb] = "wait"; flash(lb, 1200);
         S.api = "wait"; TXT.api = "Recibiendo…";
-        L[la] = "wait"; S[mk] = "wait"; TXT[mk] = "Esperando…";
+        L[la] = "wait"; flash(la, 1200);
+        S[mk] = "wait"; TXT[mk] = "Esperando…";
         $("texto-flujo").textContent = `${botId.toUpperCase()} enviando ${info.operacion} a la API (→ cluster ${cl})...`;
       } else if (info.fase === "guardado_mongo") {
         S[botId] = "ok"; L[lb] = "ok"; flash(lb, 900);
@@ -619,8 +627,8 @@
       } finally {
         etlManual = false;
         btn.disabled = false;
+        // Sin flash al terminar: la animación solo existe mientras el ETL corre
         await actualizarMetricas();
-        flash("l-mA-etl", 1500); flash("l-mB-etl", 1500); flash("l-etl-pg", 1500);
       }
     }
 
@@ -749,6 +757,8 @@
 
         if (data.etl.ciclo_id > ultimoCicloETL) {
           if (ultimoCicloETL > 0) {
+            // ETL automático: el sondeo cada 5 s casi nunca lo ve "en ejecución",
+            // así que se muestra una animación breve al detectar que terminó un ciclo nuevo
             logMsg("Sincronización ETL automática (60s) completada.");
             flash("l-mA-etl", 2000); flash("l-mB-etl", 2000); flash("l-etl-pg", 2000);
           }
