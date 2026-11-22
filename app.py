@@ -379,6 +379,8 @@ def agregar_entrada_historial(mascota_id):
 # Apartado de administración del historial clínico
 # ==========================================
 
+#prueba rapida de rama creada
+
 # Búsqueda de pacientes por síntoma o diagnóstico (Requisito R)
 @app.route('/api/historial/buscar', methods=['GET'])
 def buscar_historial():
