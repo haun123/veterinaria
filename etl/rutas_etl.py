@@ -2,7 +2,8 @@ import threading
 import time
 from datetime import datetime
 from flask import Blueprint, jsonify
-from database import get_mongo_db, get_neon_conn
+from database import get_neon_conn
+from clusters import get_mongo_db, clusters_configurados
 from etl.etl_pipeline import ejecutar_etl
 
 etl_bp = Blueprint("etl_bp", __name__, url_prefix="/api")
@@ -17,8 +18,41 @@ ESTADO_ETL = {
     "ciclo_id": 0,
 }
 
+INTERVALO_ETL_SEGUNDOS = 60
+
 _lock_etl = threading.Lock()
 _scheduler_iniciado = False
+
+COLECCIONES = ["categorias", "servicios", "usuarios", "tutores", "mascotas", "citas", "historial"]
+# Estas colecciones se copian a ambos clusters con los mismos _id (sembrar_cluster_b.py);
+# para no contarlas doble se cuentan por _id único. citas e historial solo viven en un
+# cluster (según el bot que las creó), así que simplemente se suman.
+COLECCIONES_CATALOGO = ("categorias", "servicios", "usuarios", "tutores", "mascotas")
+
+TABLAS = [
+    "categorias", "servicios", "usuarios", "tutores", "tutor_direcciones",
+    "mascotas", "mascota_alergias", "citas", "historial_clinico",
+    "historial_sintomas", "historial_tratamientos"
+]
+TABLAS_PRINCIPALES = ["categorias", "servicios", "usuarios", "tutores", "mascotas", "citas", "historial_clinico"]
+
+# Caché corto de los conteos (el dashboard los pide muy seguido)
+_TTL_CONTEOS = 2.0
+_snap = {"t": 0.0, "data": None}
+_lock_snap = threading.Lock()
+
+# Si un cluster no responde, no se reintenta en cada consulta (cada intento espera 5 s)
+_REINTENTO_CLUSTER_CAIDO = 20.0
+_cluster_caido_hasta = {}
+
+
+def _set_fase(fase):
+    ESTADO_ETL["fase_animacion"] = fase
+
+
+def _invalidar_snapshot():
+    with _lock_snap:
+        _snap["t"] = 0.0
 
 
 def _correr_etl_seguro():
@@ -31,11 +65,9 @@ def _correr_etl_seguro():
         ESTADO_ETL["fase_animacion"] = "mongo_a_etl"
         ESTADO_ETL["ciclo_id"] += 1
 
-        resultado = ejecutar_etl()
+        resultado = ejecutar_etl(on_fase=_set_fase)
 
         if resultado.get("success"):
-            # Si tu frontend espera "etl_a_postgres" para terminar la animación,
-            # cambia esta línea de vuelta a "etl_a_postgres".
             ESTADO_ETL["fase_animacion"] = "completado"
             ESTADO_ETL["estado"] = "Sincronizado"
             ESTADO_ETL["ultima_sincronizacion"] = resultado.get("ultima_sincronizacion")
@@ -56,15 +88,16 @@ def _correr_etl_seguro():
         ESTADO_ETL["ultimo_resultado"] = resultado
         return resultado
     finally:
+        _invalidar_snapshot()   # los conteos cambiaron: que la próxima consulta sea fresca
         _lock_etl.release()
 
 
-def _loop_automatico_60s():
-    """Hilo de fondo que sincroniza cada 60 segundos (1 minuto)."""
+def _loop_automatico():
+    """Hilo de fondo que sincroniza cada INTERVALO_ETL_SEGUNDOS."""
     while True:
-        time.sleep(60)
+        time.sleep(INTERVALO_ETL_SEGUNDOS)
         if ESTADO_ETL["auto_etl_activo"]:
-            print("[ETL AUTO] Ejecutando sincronización programada (cada 60s)...")
+            print(f"[ETL AUTO] Ejecutando sincronización programada (cada {INTERVALO_ETL_SEGUNDOS}s)...")
             _correr_etl_seguro()
 
 
@@ -72,7 +105,7 @@ def iniciar_scheduler_etl():
     global _scheduler_iniciado
     if not _scheduler_iniciado:
         _scheduler_iniciado = True
-        hilo = threading.Thread(target=_loop_automatico_60s, name="Hilo-ETL-Auto", daemon=True)
+        hilo = threading.Thread(target=_loop_automatico, name="Hilo-ETL-Auto", daemon=True)
         hilo.start()
 
 
@@ -88,28 +121,48 @@ def endpoint_ejecutar_etl():
     return jsonify(res), code
 
 
-@etl_bp.route("/estado", methods=["GET"])
-def endpoint_estado_general():
-    """Devuelve todas las métricas en tiempo real de MongoDB, Neon PostgreSQL y el estado del ETL."""
-    iniciar_scheduler_etl()
+def _resumen_clusters():
+    """Cuenta documentos por cluster y devuelve también los conteos unificados por colección."""
+    configurados = clusters_configurados()
+    resumen = {}
+    ids_catalogo = {col: set() for col in COLECCIONES_CATALOGO}
+    sumas = {col: 0 for col in COLECCIONES if col not in COLECCIONES_CATALOGO}
+    ahora = time.time()
 
-    # 1. Conteos en MongoDB
-    mongo_db = get_mongo_db()
-    colecciones = ["categorias", "servicios", "usuarios", "tutores", "mascotas", "citas", "historial"]
-    existentes = set(mongo_db.list_collection_names())
-    conteo_mongo = {}
-    total_mongo = 0
-    for col in colecciones:
-        c = mongo_db[col].count_documents({}) if col in existentes else 0
-        conteo_mongo[col] = c
-        total_mongo += c
+    for nombre in ("A", "B"):
+        info = {"configurado": nombre in configurados, "conectado": False, "documentos": 0, "detalle": {}}
+        if info["configurado"]:
+            if ahora < _cluster_caido_hasta.get(nombre, 0):
+                info["error"] = "Sin respuesta (reintentando en unos segundos)"
+            else:
+                try:
+                    mdb = get_mongo_db(nombre)
+                    existentes = set(mdb.list_collection_names())
+                    for col in COLECCIONES:
+                        n = mdb[col].count_documents({}) if col in existentes else 0
+                        if col in COLECCIONES_CATALOGO:
+                            if n:
+                                ids_catalogo[col].update(d["_id"] for d in mdb[col].find({}, {"_id": 1}))
+                        else:
+                            sumas[col] += n
+                        info["detalle"][col] = n
+                        info["documentos"] += n
+                    info["conectado"] = True
+                    _cluster_caido_hasta.pop(nombre, None)
+                except Exception as e:
+                    info["error"] = str(e)
+                    _cluster_caido_hasta[nombre] = time.time() + _REINTENTO_CLUSTER_CAIDO
+        resumen[nombre] = info
 
-    # 2. Conteos en Neon PostgreSQL
-    tablas = [
-        "categorias", "servicios", "usuarios", "tutores", "tutor_direcciones",
-        "mascotas", "mascota_alergias", "citas", "historial_clinico",
-        "historial_sintomas", "historial_tratamientos"
-    ]
+    conteo_unificado = {}
+    for col in COLECCIONES:
+        conteo_unificado[col] = len(ids_catalogo[col]) if col in COLECCIONES_CATALOGO else sumas[col]
+    return resumen, conteo_unificado
+
+
+def _calcular_snapshot():
+    clusters, conteo_mongo = _resumen_clusters()
+
     conteo_neon = {}
     total_neon = 0
     tablas_con_datos = 0
@@ -118,7 +171,7 @@ def endpoint_estado_general():
     conn = get_neon_conn()
     cur = conn.cursor()
     try:
-        for tabla in tablas:
+        for tabla in TABLAS:
             cur.execute(f"SELECT COUNT(*) FROM {tabla};")
             c = cur.fetchone()[0]
             conteo_neon[tabla] = c
@@ -141,15 +194,48 @@ def endpoint_estado_general():
                 "registros_eliminados": fila[3],
                 "errores": fila[4],
             }
-            if not ESTADO_ETL["ultima_sincronizacion"] and fila[0]:
-                ESTADO_ETL["ultima_sincronizacion"] = fila[0].isoformat()
     finally:
         cur.close()
         conn.close()
 
-    # Documentos sincronizados (entidades principales con mongo_id en Neon)
-    tablas_principales = ["categorias", "servicios", "usuarios", "tutores", "mascotas", "citas", "historial_clinico"]
-    docs_sincronizados = sum(conteo_neon[t] for t in tablas_principales)
+    return {
+        "clusters": clusters,
+        "conteo_mongo": conteo_mongo,
+        "conteo_neon": conteo_neon,
+        "total_neon": total_neon,
+        "tablas_con_datos": tablas_con_datos,
+        "ultima_bitacora": ultima_bitacora,
+    }
+
+
+def _snapshot():
+    with _lock_snap:
+        if _snap["data"] is not None and (time.time() - _snap["t"]) < _TTL_CONTEOS:
+            return _snap["data"]
+    data = _calcular_snapshot()
+    with _lock_snap:
+        _snap["data"] = data
+        _snap["t"] = time.time()
+    return data
+
+
+@etl_bp.route("/estado", methods=["GET"])
+def endpoint_estado_general():
+    """Devuelve todas las métricas en tiempo real de MongoDB (todos los clusters), Neon PostgreSQL y el ETL."""
+    iniciar_scheduler_etl()
+
+    snap = _snapshot()
+    clusters = snap["clusters"]
+    conteo_mongo = snap["conteo_mongo"]
+    conteo_neon = snap["conteo_neon"]
+    ultima_bitacora = snap["ultima_bitacora"]
+
+    total_mongo = sum(conteo_mongo.values())
+    docs_sincronizados = sum(conteo_neon[t] for t in TABLAS_PRINCIPALES)
+    clusters_activos = sum(1 for c in clusters.values() if c["conectado"])
+
+    if not ESTADO_ETL["ultima_sincronizacion"] and ultima_bitacora and ultima_bitacora["fecha_fin"]:
+        ESTADO_ETL["ultima_sincronizacion"] = ultima_bitacora["fecha_fin"]
 
     # Bots activos para "Usuarios / Procesos conectados"
     try:
@@ -163,12 +249,14 @@ def endpoint_estado_general():
         "mongodb": {
             "documentos_totales": total_mongo,
             "documentos_sincronizados": docs_sincronizados,
+            "clusters_activos": clusters_activos,
             "usuarios_conectados": 1 + bots_activos,  # API Flask + Bots encendidos
             "detalle_colecciones": conteo_mongo,
+            "clusters": clusters,
         },
         "postgresql": {
-            "registros_totales": total_neon,
-            "tablas_sincronizadas": f"{tablas_con_datos} / {len(tablas)}",
+            "registros_totales": snap["total_neon"],
+            "tablas_sincronizadas": f"{snap['tablas_con_datos']} / {len(TABLAS)}",
             "errores_carga": ESTADO_ETL["errores_carga"],
             "ultima_sincronizacion": ESTADO_ETL["ultima_sincronizacion"],
             "detalle_tablas": conteo_neon,

@@ -1,5 +1,6 @@
 from datetime import datetime
-from database import get_mongo_db, get_neon_conn
+from database import get_neon_conn
+from clusters import get_mongo_db, clusters_configurados
 
 
 def _str_id(val):
@@ -25,9 +26,26 @@ def _purgar_huerfanos(cur, tabla, ids_vistos):
     return cur.rowcount
 
 
-def ejecutar_etl():
+def ejecutar_etl(on_fase=None):
+    """
+    Sincroniza TODOS los clusters de MongoDB (A y, si está configurado, B) hacia
+    un único Neon PostgreSQL.
+
+    on_fase(nombre) es opcional y avisa las fases reales para la animación:
+      "mongo_a_etl"     -> leyendo documentos de los clusters
+      "etl_a_postgres"  -> transformando y cargando en Neon
+
+    Si algún cluster configurado no responde, el ETL falla completo y hace rollback:
+    así NUNCA se borra de Neon lo que solo vive en el cluster caído.
+    """
+    def _fase(nombre):
+        if on_fase:
+            try:
+                on_fase(nombre)
+            except Exception:
+                pass
+
     inicio = datetime.utcnow()
-    mongo_db = get_mongo_db()
     conn = get_neon_conn()
     cur = conn.cursor()
 
@@ -36,6 +54,7 @@ def ejecutar_etl():
     errores = 0
     detalle_error = None
     bitacora_id = None
+    nombres_clusters = []
 
     try:
         cur.execute(
@@ -49,12 +68,42 @@ def ejecutar_etl():
         bitacora_id = cur.fetchone()[0]
         conn.commit()
 
+        # ------------------------------------------------------
+        # EXTRACCIÓN: se lee todo de todos los clusters
+        # ------------------------------------------------------
+        _fase("mongo_a_etl")
+        dbs = [(nombre, get_mongo_db(nombre)) for nombre in clusters_configurados()]
+        nombres_clusters = [nombre for nombre, _ in dbs]
+
+        def _leer(coleccion):
+            # Un mismo _id puede existir en A y en B (datos base copiados con sembrar_cluster_b.py):
+            # se procesa una sola vez y, si hay conflicto, gana el cluster A (el principal).
+            por_id = {}
+            for _, mdb in dbs:
+                for doc in mdb[coleccion].find():
+                    por_id.setdefault(doc["_id"], doc)
+            return list(por_id.values())
+
+        docs_categorias = _leer("categorias")
+        docs_servicios = _leer("servicios")
+        docs_usuarios = _leer("usuarios")
+        docs_tutores = _leer("tutores")
+        docs_mascotas = _leer("mascotas")
+        docs_citas = _leer("citas")
+        docs_historial = _leer("historial")
+
+        # ------------------------------------------------------
+        # TRANSFORMACIÓN Y CARGA
+        # ------------------------------------------------------
+        _fase("etl_a_postgres")
+
         map_categorias = {}
         map_servicios = {}
         map_usuarios = {}
         map_tutores = {}
         map_mascotas = {}  # mongo_id -> (mascota_id_neon, tutor_id_neon)
 
+        # mongo_ids que existen HOY en Mongo (en cualquiera de los clusters)
         vistos = {
             "categorias": set(),
             "servicios": set(),
@@ -65,7 +114,7 @@ def ejecutar_etl():
         }
 
         # 1. CATEGORIAS
-        for doc in mongo_db.categorias.find():
+        for doc in docs_categorias:
             mid = _str_id(doc.get("_id"))
             especie = _get_any(doc, "especie", "nombre", default="General")
             descripcion = _get_any(doc, "descripcion", default="")
@@ -89,7 +138,7 @@ def ejecutar_etl():
             procesados += 1
 
         # 2. SERVICIOS
-        for doc in mongo_db.servicios.find():
+        for doc in docs_servicios:
             mid = _str_id(doc.get("_id"))
             nombre = _get_any(doc, "nombre", default="Servicio")
             tipo = _get_any(doc, "tipo", "categoria", default="general")
@@ -117,7 +166,7 @@ def ejecutar_etl():
             procesados += 1
 
         # 3. USUARIOS (sin DELETE previo para no chocar con FK de citas/historial)
-        for doc in mongo_db.usuarios.find():
+        for doc in docs_usuarios:
             mid = _str_id(doc.get("_id"))
             nombre = _get_any(doc, "nombre", default="Usuario")
             apellidos = _get_any(doc, "apellidos", "apellido", default="")
@@ -155,7 +204,7 @@ def ejecutar_etl():
 
         # 4. TUTORES Y DIRECCIONES
         mascotas_embebidas = []
-        for doc in mongo_db.tutores.find():
+        for doc in docs_tutores:
             mid = _str_id(doc.get("_id"))
             nombre = _get_any(doc, "nombre", default="Tutor")
             apellidos = _get_any(doc, "apellidos", "apellido", default="")
@@ -216,7 +265,6 @@ def ejecutar_etl():
                     mascotas_embebidas.append(m_copy)
 
         # 5. MASCOTAS Y ALERGIAS
-        docs_mascotas = list(mongo_db.mascotas.find()) if "mascotas" in mongo_db.list_collection_names() else []
         if not docs_mascotas and mascotas_embebidas:
             docs_mascotas = mascotas_embebidas
 
@@ -288,7 +336,7 @@ def ejecutar_etl():
         mascota_fallback = next(iter(map_mascotas.values()), None)
 
         # 6. CITAS (con respaldo por si alguna cita apunta a una mascota ya borrada)
-        for doc in mongo_db.citas.find():
+        for doc in docs_citas:
             mid = _str_id(doc.get("_id"))
             mascota_mid = _str_id(_get_any(doc, "mascotaId", "mascota_id"))
             tutor_mid = _str_id(_get_any(doc, "tutorId", "tutor_id"))
@@ -341,7 +389,7 @@ def ejecutar_etl():
             procesados += 1
 
         # 7. HISTORIAL CLÍNICO + SÍNTOMAS + TRATAMIENTOS
-        for doc in mongo_db.historial.find():
+        for doc in docs_historial:
             mid = _str_id(doc.get("_id"))
             mascota_mid = _str_id(_get_any(doc, "mascotaId", "mascota_id"))
             usuario_mid = _str_id(_get_any(doc, "usuarioId", "usuario_id"))
@@ -419,7 +467,7 @@ def ejecutar_etl():
                             (historial_neon_id, str(t)),
                         )
 
-        # 8. LIMPIEZA DE REGISTROS ELIMINADOS EN MONGODB
+        # 8. LIMPIEZA DE REGISTROS ELIMINADOS EN MONGODB (en cualquiera de los clusters)
         for tabla in [
             "historial_clinico",
             "citas",
@@ -441,11 +489,12 @@ def ejecutar_etl():
             (fin, "SINCRONIZADO", procesados, eliminados, errores, bitacora_id),
         )
         conn.commit()
-        print(f"[ETL OK] Procesados: {procesados} | Eliminados: {eliminados}")
+        print(f"[ETL OK] Clusters: {'+'.join(nombres_clusters)} | Procesados: {procesados} | Eliminados: {eliminados}")
 
         return {
             "success": True,
             "estado": "Sincronizado",
+            "clusters": nombres_clusters,
             "registros_procesados": procesados,
             "registros_eliminados": eliminados,
             "errores": errores,
@@ -475,6 +524,7 @@ def ejecutar_etl():
         return {
             "success": False,
             "estado": "Error",
+            "clusters": nombres_clusters,
             "registros_procesados": procesados,
             "registros_eliminados": eliminados,
             "errores": errores,

@@ -10,6 +10,7 @@
       --z500:#71717a; --z400:#a1a1aa; --z300:#d4d4d8;
       --green:#22c55e; --green4:#4ade80; --red:#ef4444; --red4:#f87171;
       --blue:#3b82f6; --blue4:#60a5fa; --amber:#f59e0b; --amber4:#fbbf24;
+      --coral:#f97316; --coral4:#fb923c;
     }
     * { box-sizing:border-box; font-family:system-ui,-apple-system,sans-serif; }
     body { background:var(--z950); color:#f4f4f5; margin:0; padding:24px; }
@@ -26,13 +27,14 @@
     section { margin-bottom:32px; }
     .sec-title { font-size:.75rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--z500); margin:0 0 12px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; }
     .sec-title .flujo-txt { text-transform:none; letter-spacing:0; font-weight:400; font-size:.8rem; color:var(--blue4); }
+    .nota { margin:10px 2px 0; font-size:.78rem; color:var(--z400); }
     .legend { display:flex; gap:14px; text-transform:none; letter-spacing:0; font-weight:400; font-size:.75rem; color:var(--z400); }
     .legend span { display:flex; align-items:center; gap:6px; }
     .legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
 
     /* ---------- Flujo ---------- */
     .flow-wrap { background:var(--z900); border:1px solid var(--z800); border-radius:16px; overflow-x:auto; }
-    .flow { position:relative; min-width:1120px; padding:28px; display:flex; align-items:center; justify-content:space-between; }
+    .flow { position:relative; min-width:1180px; padding:28px; display:flex; align-items:center; justify-content:space-between; }
     .flow svg.lines { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; overflow:visible; }
     .flow > *:not(svg) { position:relative; z-index:1; }
 
@@ -53,7 +55,7 @@
     .st-err  { border-color:rgba(239,68,68,.75) !important; box-shadow:0 0 14px rgba(239,68,68,.28); }
 
     .bots-col { display:flex; flex-direction:column; gap:14px; }
-    .bot-card { display:flex; flex-direction:column; justify-content:space-between; width:224px; height:152px; padding:14px; border-radius:16px; border:1px solid var(--z800); background:var(--z950); transition:border-color .25s, box-shadow .25s; }
+    .bot-card { display:flex; flex-direction:column; justify-content:space-between; width:224px; height:132px; padding:12px 14px; border-radius:16px; border:1px solid var(--z800); background:var(--z950); transition:border-color .25s, box-shadow .25s; }
     .bot-top { display:flex; justify-content:space-between; align-items:center; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:.72rem; font-weight:500; background:var(--z800); color:var(--z400); }
     .pill i { width:6px; height:6px; border-radius:50%; background:var(--z500); }
@@ -69,13 +71,18 @@
     .bot-mid { display:flex; align-items:center; justify-content:center; gap:8px; }
     .bot-mid svg { color:var(--z500); }
     .st-wait .bot-mid svg { color:var(--amber4); } .st-ok .bot-mid svg { color:var(--green4); } .st-err .bot-mid svg { color:var(--red4); }
-    .bot-mid .name { font-size:1rem; font-weight:600; }
-    .toggle { display:flex; align-items:center; justify-content:center; gap:8px; padding:7px 14px; border-radius:8px; font-size:.82rem; font-weight:500; transition:background .2s; background:var(--green); color:var(--z950); }
+    .bot-mid .name { font-size:.95rem; font-weight:600; }
+    .bot-mid .cl { display:block; font-size:.68rem; font-weight:500; color:var(--z500); }
+    .bot-mid .cl.b { color:var(--coral4); }
+    .toggle { display:flex; align-items:center; justify-content:center; gap:8px; padding:6px 14px; border-radius:8px; font-size:.82rem; font-weight:500; transition:background .2s; background:var(--green); color:var(--z950); }
     .toggle:hover { background:var(--green4); }
     .bot-card.act .toggle { background:rgba(239,68,68,.15); color:var(--red4); }
     .bot-card.act .toggle:hover { background:rgba(239,68,68,.25); }
 
+    .mongo-col { display:flex; flex-direction:column; gap:14px; }
     .fnode { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; width:150px; height:118px; padding:12px; border-radius:16px; border:2px solid var(--z800); background:var(--z950); text-align:center; transition:border-color .25s, box-shadow .25s; }
+    .fnode.tall { height:250px; }
+    .fnode.mid { height:176px; }
     .fnode svg { color:var(--z500); }
     .fnode.st-wait svg { color:var(--amber4); animation:blink 1s infinite; }
     .fnode.st-ok svg { color:var(--green4); }
@@ -89,11 +96,14 @@
     .row { display:flex; flex-wrap:wrap; gap:16px; }
     .db-card { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; width:208px; height:176px; padding:16px; border-radius:16px; border:1px solid var(--z800); background:var(--z900); transition:border-color .2s; }
     .db-card.on { border-color:rgba(34,197,94,.5); }
+    .db-card.bad { border-color:rgba(239,68,68,.6); }
     .db-card svg { color:var(--z500); }
     .db-card.on svg { color:var(--green4); }
+    .db-card.bad svg { color:var(--red4); }
     .db-card .name { font-weight:600; margin:0; }
     .db-card .pill { padding:2px 10px; }
     .db-card.on .pill { background:rgba(34,197,94,.15); color:var(--green4); }
+    .db-card.bad .pill { background:rgba(239,68,68,.15); color:var(--red4); }
     .db-card .det { display:flex; align-items:center; gap:6px; margin-top:4px; padding:4px 8px; border-radius:6px; font-size:.75rem; background:transparent; color:var(--z400); }
     .db-card .det:hover { background:var(--z800); color:#fff; }
 
@@ -114,12 +124,13 @@
     .card { background:var(--z900); border:1px solid var(--z800); border-radius:16px; padding:18px; }
     .card h2 { font-size:.75rem; margin:0 0 12px; color:var(--z400); text-transform:uppercase; letter-spacing:.06em; }
     .metrics-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
-    .metrics-grid.c3 { grid-template-columns:repeat(3,1fr); }
+    .metrics-grid.c4 { grid-template-columns:repeat(4,1fr); }
     .metric { background:var(--z950); padding:12px; border-radius:12px; border:1px solid var(--z800); }
     .metric span { display:block; font-size:.72rem; color:var(--z400); }
     .metric strong { font-size:1.4rem; color:#f4f4f5; }
     .tags { margin-top:12px; font-size:.78rem; color:var(--z300); display:flex; flex-wrap:wrap; gap:6px; }
     .tag { background:var(--z950); border:1px solid var(--z800); padding:3px 8px; border-radius:6px; }
+    .tag.b { border-color:rgba(249,115,22,.45); }
 
     #log-eventos { background:#000; border:1px solid var(--z800); border-radius:12px; padding:12px; height:140px; overflow-y:auto; font-family:ui-monospace,monospace; font-size:.78rem; color:var(--z400); }
     #log-eventos div { font-family:inherit; }
@@ -138,14 +149,14 @@
     .stat b.empty { color:var(--z600); }
     .stat small { font-size:.72rem; color:var(--z400); }
 
-    @media (max-width:900px) { .grid-2 { grid-template-columns:1fr; } }
+    @media (max-width:900px) { .grid-2 { grid-template-columns:1fr; } .metrics-grid.c4 { grid-template-columns:repeat(2,1fr); } }
   </style>
 </head>
 <body>
 
   <header>
     <h1>Dashboard de Simulación
-      <small>CRUD & ETL · MongoDB → Neon PostgreSQL</small>
+      <small>CRUD & ETL · MongoDB (clusters A y B) → Neon PostgreSQL</small>
     </h1>
     <button class="btn-etl" id="btn-forzar-etl" onclick="ejecutarETLManual()">
       <svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
@@ -153,7 +164,7 @@
     </button>
   </header>
 
-  <!-- FLUJO UNIFICADO -->
+  <!-- FLUJO: carriles individuales (Bot→API→MongoDB) y tramo único (MongoDB→ETL→PostgreSQL) -->
   <section>
     <h3 class="sec-title">
       <span>Flujo de datos en tiempo real</span>
@@ -171,14 +182,20 @@
 
         <div class="bots-col" id="bots-col"></div>
 
-        <div class="fnode st-idle" id="node-api">
+        <div class="fnode tall st-idle" id="node-api">
           <svg class="ic" width="28" height="28" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
           <b>API Flask</b><small>REST / JSON</small><span class="fstate" id="fs-api"></span>
         </div>
 
-        <div class="fnode st-idle" id="node-mongo">
-          <svg class="ic" width="28" height="28" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
-          <b>MongoDB</b><small id="sub-mongo">0 docs</small><span class="fstate" id="fs-mongo"></span>
+        <div class="mongo-col">
+          <div class="fnode mid st-idle" id="node-mongoA">
+            <svg class="ic" width="28" height="28" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+            <b>MongoDB A</b><small id="sub-mongoA">0 docs</small><span class="fstate" id="fs-mongoA"></span>
+          </div>
+          <div class="fnode st-idle" id="node-mongoB">
+            <svg class="ic" width="28" height="28" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+            <b>MongoDB B</b><small id="sub-mongoB">0 docs</small><span class="fstate" id="fs-mongoB"></span>
+          </div>
         </div>
 
         <div class="fnode st-idle" id="node-etl">
@@ -192,17 +209,27 @@
         </div>
       </div>
     </div>
+    <p class="nota">Regla de conexión: los bots escriben en MongoDB A; cuando hay más de 3 conectados a la vez,
+      el siguiente (el 4.º en conectarse) escribe en MongoDB B. El destino actual de cada bot se ve en su tarjeta.</p>
   </section>
 
   <!-- BASES DE DATOS + SINCRONIZACIÓN -->
   <section>
     <h3 class="sec-title">Bases de datos</h3>
     <div class="row">
-      <div class="db-card" id="db-mongo">
+      <div class="db-card" id="db-mongoA">
         <svg class="ic" width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
-        <p class="name">MongoDB</p>
-        <span class="pill" id="db-mongo-pill">Inactiva</span>
-        <button class="det" onclick="abrirModal('mongo')">
+        <p class="name">MongoDB A</p>
+        <span class="pill" id="db-mongoA-pill">Inactiva</span>
+        <button class="det" onclick="abrirModal('mongoA')">
+          <svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Detalles
+        </button>
+      </div>
+      <div class="db-card" id="db-mongoB">
+        <svg class="ic" width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+        <p class="name">MongoDB B</p>
+        <span class="pill" id="db-mongoB-pill">No configurada</span>
+        <button class="det" onclick="abrirModal('mongoB')">
           <svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Detalles
         </button>
       </div>
@@ -229,11 +256,13 @@
     <div class="grid-2">
       <div class="card">
         <h2>MongoDB (Origen NoSQL)</h2>
-        <div class="metrics-grid c3">
+        <div class="metrics-grid c4">
           <div class="metric"><span>Documentos totales</span><strong id="m-totales">0</strong></div>
           <div class="metric"><span>Documentos sincronizados</span><strong id="m-sinc">0</strong></div>
           <div class="metric"><span>Pendientes por migrar</span><strong id="m-pend">0</strong></div>
+          <div class="metric"><span>Clusters activos</span><strong id="m-clusters">0</strong></div>
         </div>
+        <div class="tags" id="lista-clusters"></div>
         <div class="tags" id="lista-colecciones"></div>
       </div>
 
@@ -284,31 +313,47 @@
     };
     const ico = (n, s = 18) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24">${ICONS[n]}</svg>`;
 
-    /* ---------- Estado global ---------- */
+    /* ---------- Configuración ---------- */
+    // El cluster de cada bot NO es fijo: lo decide el backend al encenderlo (primeros 3 -> A, el 4.º -> B)
+    // y llega en /api/bots/estado. "A" es solo el valor inicial.
     const BOTS = [
-      { id: "bot1", name: "Bot 1 — Citas" },
-      { id: "bot2", name: "Bot 2 — Historial" },
-      { id: "bot3", name: "Bot 3 — Mixto" }
+      { id: "bot1", name: "Bot 1 — Citas", cluster: "A" },
+      { id: "bot2", name: "Bot 2 — Historial", cluster: "A" },
+      { id: "bot3", name: "Bot 3 — Mixto", cluster: "A" },
+      { id: "bot4", name: "Bot 4 — Mixto", cluster: "A" }
     ];
+    const NODOS = ["api", "mongoA", "mongoB", "etl", "pg"];
     const LBL = { idle: "Inactivo", wait: "En espera", ok: "Completado", err: "Error" };
     const STS = ["st-idle", "st-wait", "st-ok", "st-err"];
 
-    // Estado visual de cada elemento: idle | wait | ok | err
-    const S = { bot1: "idle", bot2: "idle", bot3: "idle", api: "idle", mongo: "idle", etl: "idle", pg: "idle" };
-    const TXT = { api: "", mongo: "", etl: "", pg: "" };   // texto personalizado bajo cada nodo
-    // Estado visual de cada línea
-    const L = { "l-bot1": "idle", "l-bot2": "idle", "l-bot3": "idle", "l-api-mongo": "idle", "l-mongo-etl": "idle", "l-etl-pg": "idle" };
-    const flowUntil = {};  // animación temporal por evento
-    const hold = {};       // animación continua (ETL en ejecución)
+    /* ---------- Estado global ---------- */
+    const S = {};      // estado visual de bots y nodos: idle | wait | ok | err
+    const TXT = {};    // texto personalizado bajo cada nodo
+    const L = {};      // estado visual de cada línea
+    const flowUntil = {};   // animación temporal por evento
+    const hold = {};        // animación continua (ETL en ejecución)
+    const ultimosEventosBots = {};
+    const docsCl = { A: 0, B: 0 };
+    const clusterPrevio = {};   // para saber cuándo un bot cambió de cluster y redibujar las líneas
 
-    const ultimosEventosBots = { bot1: 0, bot2: 0, bot3: 0 };
+    NODOS.forEach(k => { S[k] = "idle"; TXT[k] = ""; });
+    BOTS.forEach(b => {
+      S[b.id] = "idle";
+      L["l-" + b.id] = "idle";        // Bot -> API   (uno por bot)
+      L["l-am-" + b.id] = "idle";     // API -> MongoDB (uno por bot)
+      ultimosEventosBots[b.id] = 0;
+    });
+    ["l-mA-etl", "l-mB-etl", "l-etl-pg"].forEach(id => { L[id] = "idle"; });   // tramo único
+
     let ultimoCicloETL = 0;
     let ultimoEstadoBots = {};
     let ultimoEstadoGlobal = null;
     let modalActual = null;
     let etlManual = false;
     let etlErrorLocal = false;
-    let mongoDocs = 0;
+
+    const clusterDe = id => (ultimoEstadoBots[id] && ultimoEstadoBots[id].cluster) || BOTS.find(b => b.id === id).cluster;
+    const nodoMongo = id => clusterDe(id) === "B" ? "mongoB" : "mongoA";
 
     /* ---------- Render inicial: bots ---------- */
     $("bots-col").innerHTML = BOTS.map(b => `
@@ -317,7 +362,7 @@
           <span class="pill"><i></i><span id="st-${b.id}">Inactivo</span></span>
           <button class="icon-btn" onclick="abrirModal('bot','${b.id}')" aria-label="Ver detalles de ${b.name}">${ico("chart")}</button>
         </div>
-        <div class="bot-mid">${ico("bot", 26)}<span class="name">${b.name}</span></div>
+        <div class="bot-mid">${ico("bot", 26)}<div><span class="name">${b.name}</span><span class="cl ${b.cluster === "B" ? "b" : ""}" id="cl-${b.id}">→ Cluster ${b.cluster}</span></div></div>
         <button class="toggle" onclick="toggleBot('${b.id}')">
           <span id="toggle-ic-${b.id}">${ico("play", 16)}</span><span id="toggle-tx-${b.id}">Iniciar</span>
         </button>
@@ -331,9 +376,10 @@
     function trazar() {
       const flow = $("flow");
       const c = flow.getBoundingClientRect();
-      const pt = (el, lado) => {
+      // f = fracción de la altura del nodo donde "se conecta" la línea (carriles separados)
+      const pt = (el, lado, f = 0.5) => {
         const r = el.getBoundingClientRect();
-        return { x: (lado === "r" ? r.right : r.left) - c.left, y: r.top + r.height / 2 - c.top };
+        return { x: (lado === "r" ? r.right : r.left) - c.left, y: r.top + r.height * f - c.top };
       };
       const svg = $("lines");
       svg.setAttribute("viewBox", `0 0 ${c.width} ${c.height}`);
@@ -346,9 +392,19 @@
         $(lineId).querySelectorAll("path").forEach(p => p.setAttribute("d", d));
       };
 
-      BOTS.forEach(b => set(`l-${b.id}`, pt($(`card-${b.id}`), "r"), pt($("node-api"), "l")));
-      set("l-api-mongo", pt($("node-api"), "r"), pt($("node-mongo"), "l"));
-      set("l-mongo-etl", pt($("node-mongo"), "r"), pt($("node-etl"), "l"));
+      const api = $("node-api");
+      BOTS.forEach((b, i) => {
+        const f = (i + 1) / (BOTS.length + 1);                  // carril del bot en el borde de la API
+        set(`l-${b.id}`, pt($(`card-${b.id}`), "r"), pt(api, "l", f));
+
+        const mismos = BOTS.filter(x => clusterDe(x.id) === clusterDe(b.id));
+        const fMongo = (mismos.findIndex(x => x.id === b.id) + 1) / (mismos.length + 1);
+        set(`l-am-${b.id}`, pt(api, "r", f), pt($("node-" + nodoMongo(b.id)), "l", fMongo));
+      });
+
+      // Desde aquí el proceso es único: ambos clusters convergen en el ETL
+      set("l-mA-etl", pt($("node-mongoA"), "r"), pt($("node-etl"), "l", 0.35));
+      set("l-mB-etl", pt($("node-mongoB"), "r"), pt($("node-etl"), "l", 0.65));
       set("l-etl-pg", pt($("node-etl"), "r"), pt($("node-pg"), "l"));
     }
     new ResizeObserver(trazar).observe($("flow"));
@@ -368,7 +424,7 @@
         $(`card-${b.id}`).classList.toggle("act", !!(info && info.activo));
         $(`st-${b.id}`).textContent = LBL[S[b.id]];
       });
-      ["api", "mongo", "etl", "pg"].forEach(k => {
+      NODOS.forEach(k => {
         setCls($("node-" + k), S[k]);
         $("fs-" + k).textContent = TXT[k] || LBL[S[k]];
       });
@@ -415,12 +471,13 @@
         html = statHTML("Enviados", "send", "var(--blue4)", info ? ex + fa : null)
              + statHTML("Exitosos", "ok", "var(--green4)", ex)
              + statHTML("Fallidos", "fail", "var(--red4)", fa);
-      } else if (tipo === "mongo") {
-        titulo = "MongoDB · Detalles";
-        const m = g && g.mongodb;
-        const bi = Object.values(ultimoEstadoBots);
+      } else if (tipo === "mongoA" || tipo === "mongoB") {
+        const c = tipo === "mongoA" ? "A" : "B";
+        titulo = `MongoDB ${c} · Detalles`;
+        const bi = Object.values(ultimoEstadoBots).map(x => x.por_cluster && x.por_cluster[c]).filter(Boolean);
+        const cl = g && g.mongodb.clusters && g.mongodb.clusters[c];
         html = statHTML("Recibidos", "download", "var(--blue4)", bi.length ? bi.reduce((s, x) => s + x.exitosas + x.fallidas, 0) : null)
-             + statHTML("Agregados", "ok", "var(--green4)", m ? m.documentos_totales : null)
+             + statHTML("Agregados", "ok", "var(--green4)", cl && cl.conectado ? cl.documentos : null)
              + statHTML("Fallidos", "fail", "var(--red4)", bi.length ? bi.reduce((s, x) => s + x.fallidas, 0) : null);
       } else if (tipo === "pg") {
         titulo = "PostgreSQL · Detalles";
@@ -438,13 +495,19 @@
       if (S.api === "idle" || (S.api === "err" && TXT.api === "Sin respuesta")) {
         S.api = "ok"; TXT.api = "En línea";
       }
-      if (L["l-api-mongo"] === "idle" || (L["l-api-mongo"] === "err" && S.api === "ok")) {
-        L["l-api-mongo"] = mongoDocs > 0 ? "ok" : "idle";
-      }
+      if (S.api === "ok") reposoCarriles();
     }
     function apiCaida() {
-      S.api = "err"; TXT.api = "Sin respuesta"; L["l-api-mongo"] = "err";
+      S.api = "err"; TXT.api = "Sin respuesta";
+      BOTS.forEach(b => { L["l-am-" + b.id] = "err"; });
       pintar();
+    }
+    // En reposo, el carril API -> MongoDB queda verde si ese cluster ya tiene datos
+    function reposoCarriles() {
+      BOTS.forEach(b => {
+        const la = "l-am-" + b.id;
+        if (L[la] === "idle" || L[la] === "err") L[la] = docsCl[clusterDe(b.id)] > 0 ? "ok" : "idle";
+      });
     }
 
     /* ---------- Bots ---------- */
@@ -462,26 +525,27 @@
       } catch (e) { logMsg(`Error controlando ${botId}: ${e}`); }
     }
 
-    // Un evento nuevo de un bot mueve el color/animación a lo largo del flujo
+    // Un evento nuevo de un bot mueve el color/animación a lo largo de SU carril
     function procesarEvento(botId, info) {
-      const lb = "l-" + botId;
+      const lb = "l-" + botId, la = "l-am-" + botId;
+      const cl = clusterDe(botId), mk = nodoMongo(botId);
       if (info.fase === "enviando_api") {
         S[botId] = "wait"; L[lb] = "wait"; flash(lb, 1200);
         S.api = "wait"; TXT.api = "Recibiendo…";
-        L["l-api-mongo"] = "wait"; S.mongo = "wait"; TXT.mongo = "Esperando…";
-        $("texto-flujo").textContent = `${botId.toUpperCase()} enviando ${info.operacion} a la API...`;
+        L[la] = "wait"; S[mk] = "wait"; TXT[mk] = "Esperando…";
+        $("texto-flujo").textContent = `${botId.toUpperCase()} enviando ${info.operacion} a la API (→ cluster ${cl})...`;
       } else if (info.fase === "guardado_mongo") {
         S[botId] = "ok"; L[lb] = "ok"; flash(lb, 900);
         S.api = "ok"; TXT.api = "";
-        L["l-api-mongo"] = "ok"; flash("l-api-mongo", 1300);
-        S.mongo = "ok"; TXT.mongo = "Guardado";
-        $("texto-flujo").textContent = `API guardó en MongoDB: ${info.detalle}`;
-        logMsg(`${botId.toUpperCase()} -> MongoDB: ${info.detalle}`);
+        L[la] = "ok"; flash(la, 1300);
+        S[mk] = "ok"; TXT[mk] = "Guardado";
+        $("texto-flujo").textContent = `API guardó en MongoDB ${cl}: ${info.detalle}`;
+        logMsg(`${botId.toUpperCase()} -> MongoDB ${cl}: ${info.detalle}`);
         actualizarMetricas();
       } else if (info.fase === "error") {
         S[botId] = "err"; L[lb] = "err"; flash(lb, 900);
-        S.api = "err"; TXT.api = "Error"; L["l-api-mongo"] = "idle";
-        S.mongo = mongoDocs > 0 ? "ok" : "idle"; TXT.mongo = "";
+        S.api = "err"; TXT.api = "Error"; L[la] = "idle";
+        S[mk] = docsCl[cl] > 0 ? "ok" : "idle"; TXT[mk] = "";
         $("texto-flujo").textContent = `Error en ${botId.toUpperCase()}`;
         logMsg(`ERROR ${botId.toUpperCase()}: ${info.detalle}`);
       }
@@ -497,19 +561,33 @@
         if (!data.success) return;
         apiViva();
         ultimoEstadoBots = data.bots;
+        let cambioCluster = false;
 
         for (const [botId, info] of Object.entries(data.bots)) {
           if (!(botId in S)) continue;
+          if (clusterPrevio[botId] !== info.cluster) {
+            if (clusterPrevio[botId] !== undefined) {
+              logMsg(`${botId.toUpperCase()} ahora apunta al cluster ${info.cluster}`);
+              L["l-am-" + botId] = "idle";
+            }
+            clusterPrevio[botId] = info.cluster;
+            cambioCluster = true;
+          }
           if (info.evento_id > ultimosEventosBots[botId]) {
             ultimosEventosBots[botId] = info.evento_id;
             procesarEvento(botId, info);
           }
-          if (!info.activo) { S[botId] = "idle"; L["l-" + botId] = "idle"; }
-          else if (S[botId] === "idle") { S[botId] = "wait"; L["l-" + botId] = "wait"; }
+          if (!info.activo) {
+            // Si el bot terminó por un error (p. ej. cluster B sin catálogo) se deja visible el error
+            if (info.fase === "error") { S[botId] = "err"; } else { S[botId] = "idle"; L["l-" + botId] = "idle"; }
+          } else if (S[botId] === "idle") { S[botId] = "wait"; L["l-" + botId] = "wait"; }
 
+          const cl = $(`cl-${botId}`);
+          if (cl) { cl.textContent = `→ Cluster ${info.cluster}`; cl.classList.toggle("b", info.cluster === "B"); }
           $(`toggle-ic-${botId}`).innerHTML = ico(info.activo ? "square" : "play", 16);
           $(`toggle-tx-${botId}`).textContent = info.activo ? "Detener" : "Iniciar";
         }
+        if (cambioCluster) { reposoCarriles(); trazar(); }
         pintar();
         renderModal();
       } catch (e) { /* silencio en polling */ }
@@ -521,14 +599,16 @@
       btn.disabled = true;
       etlManual = true; etlErrorLocal = false;
       derivarSync();
-      $("texto-flujo").textContent = "ETL extrayendo de MongoDB y cargando en Neon PostgreSQL...";
+      $("texto-flujo").textContent = "ETL extrayendo de MongoDB (A y B) y cargando en Neon PostgreSQL...";
       logMsg("Iniciando sincronización ETL manual...");
       try {
         const res = await fetch("/api/etl/ejecutar", { method: "POST" });
         const data = await res.json();
         if (data.success) {
-          logMsg(`ETL completado: ${data.registros_procesados} registros sincronizados.`);
+          logMsg(`ETL completado: ${data.registros_procesados} registros sincronizados, ${data.registros_eliminados || 0} eliminados.`);
           $("texto-flujo").textContent = `Sincronizado (${data.registros_procesados} registros)`;
+        } else if (data.busy) {
+          logMsg("El ETL ya estaba en ejecución.");
         } else {
           etlErrorLocal = true;
           logMsg(`Error en ETL: ${data.error}`);
@@ -540,7 +620,7 @@
         etlManual = false;
         btn.disabled = false;
         await actualizarMetricas();
-        flash("l-mongo-etl", 1500); flash("l-etl-pg", 1500);
+        flash("l-mA-etl", 1500); flash("l-mB-etl", 1500); flash("l-etl-pg", 1500);
       }
     }
 
@@ -549,38 +629,52 @@
       const g = ultimoEstadoGlobal;
       if (!g) { pintar(); return; }
       const m = g.mongodb, pg = g.postgresql;
+      const bConf = !!(m.clusters && m.clusters.B && m.clusters.B.configurado);
       const pend = Math.max(0, m.documentos_totales - m.documentos_sincronizados);
       const corriendo = etlManual || g.etl.estado === "En ejecución";
       const error = !corriendo && (etlErrorLocal || g.etl.estado === "Error");
+      const fase = g.etl.fase_animacion;
 
-      hold["l-mongo-etl"] = hold["l-etl-pg"] = corriendo;
-      let sync; // ok | wait | err
-      let syncTxt;
+      // Tramo Mongo -> ETL (ambos clusters) y tramo ETL -> PG
+      const setMongoEtl = st => { L["l-mA-etl"] = st; L["l-mB-etl"] = bConf ? st : "idle"; };
+      const holdMongoEtl = v => { hold["l-mA-etl"] = v; hold["l-mB-etl"] = v && bConf; };
+
+      let sync, syncTxt;
 
       if (corriendo) {
         S.etl = "wait"; TXT.etl = "Ejecutando…";
-        S.pg = "wait"; TXT.pg = "Recibiendo…";
-        L["l-mongo-etl"] = "wait"; L["l-etl-pg"] = "wait";
+        if (fase === "etl_a_postgres") {           // ya leyó de Mongo: ahora carga en Neon
+          setMongoEtl("ok"); holdMongoEtl(false);
+          L["l-etl-pg"] = "wait"; hold["l-etl-pg"] = true;
+          S.pg = "wait"; TXT.pg = "Recibiendo…";
+        } else {                                   // leyendo de los clusters
+          setMongoEtl("wait"); holdMongoEtl(true);
+          L["l-etl-pg"] = "idle"; hold["l-etl-pg"] = false;
+          S.pg = "wait"; TXT.pg = "Esperando…";
+        }
         sync = "wait"; syncTxt = "En ejecución";
-      } else if (error) {
-        S.etl = "err"; TXT.etl = "Error";
-        S.pg = "wait"; TXT.pg = "Desactualizado";
-        L["l-mongo-etl"] = "err"; L["l-etl-pg"] = "err";
-        sync = "err"; syncTxt = "Error";
-      } else if (pend > 0) {
-        S.etl = "wait"; TXT.etl = "Pendiente";
-        S.pg = "wait"; TXT.pg = "Desactualizado";
-        L["l-mongo-etl"] = "wait"; L["l-etl-pg"] = "wait";
-        sync = "wait"; syncTxt = "Desincronizado";
-      } else if (m.documentos_totales > 0 || pg.registros_totales > 0) {
-        S.etl = "ok"; TXT.etl = "Sincronizado";
-        S.pg = "ok"; TXT.pg = "Sincronizado";
-        L["l-mongo-etl"] = "ok"; L["l-etl-pg"] = "ok";
-        sync = "ok"; syncTxt = "Sincronizado";
       } else {
-        S.etl = "idle"; TXT.etl = ""; S.pg = "idle"; TXT.pg = "";
-        L["l-mongo-etl"] = "idle"; L["l-etl-pg"] = "idle";
-        sync = "ok"; syncTxt = "Sincronizado";
+        holdMongoEtl(false); hold["l-etl-pg"] = false;
+        if (error) {
+          S.etl = "err"; TXT.etl = "Error";
+          S.pg = "wait"; TXT.pg = "Desactualizado";
+          setMongoEtl("err"); L["l-etl-pg"] = "err";
+          sync = "err"; syncTxt = "Error";
+        } else if (pend > 0) {
+          S.etl = "wait"; TXT.etl = "Pendiente";
+          S.pg = "wait"; TXT.pg = "Desactualizado";
+          setMongoEtl("wait"); L["l-etl-pg"] = "wait";
+          sync = "wait"; syncTxt = "Desincronizado";
+        } else if (m.documentos_totales > 0 || pg.registros_totales > 0) {
+          S.etl = "ok"; TXT.etl = "Sincronizado";
+          S.pg = "ok"; TXT.pg = "Sincronizado";
+          setMongoEtl("ok"); L["l-etl-pg"] = "ok";
+          sync = "ok"; syncTxt = "Sincronizado";
+        } else {
+          S.etl = "idle"; TXT.etl = ""; S.pg = "idle"; TXT.pg = "";
+          setMongoEtl("idle"); L["l-etl-pg"] = "idle";
+          sync = "ok"; syncTxt = "Sincronizado";
+        }
       }
 
       $("sync-conn").className = "conn " + sync;
@@ -588,6 +682,31 @@
       $("sync-text").textContent = syncTxt;
       $("sync-sub").textContent = `${pend} documento${pend === 1 ? "" : "s"} pendiente${pend === 1 ? "" : "s"}`;
       pintar();
+    }
+
+    /* ---------- Clusters de MongoDB ---------- */
+    function pintarClusters(m) {
+      [["A", "mongoA"], ["B", "mongoB"]].forEach(([c, k]) => {
+        const cl = m.clusters[c];
+        docsCl[c] = cl.conectado ? cl.documentos : 0;
+        $("sub-" + k).textContent = cl.configurado ? `${cl.documentos} docs` : "—";
+
+        let pill, clase = "";
+        if (!cl.configurado) {
+          S[k] = "idle"; TXT[k] = "No configurado"; pill = "No configurada";
+        } else if (!cl.conectado) {
+          S[k] = "err"; TXT[k] = "Sin conexión"; pill = "Sin conexión"; clase = "bad";
+        } else {
+          if (S[k] === "idle" || S[k] === "err") S[k] = cl.documentos > 0 ? "ok" : "idle";
+          if (TXT[k] === "No configurado" || TXT[k] === "Sin conexión" || (S[k] === "ok" && TXT[k] === "Guardado")) TXT[k] = "";
+          pill = cl.documentos > 0 ? "Activa" : "Inactiva";
+          if (cl.documentos > 0) clase = "on";
+        }
+        const card = $("db-" + k);
+        card.classList.toggle("on", clase === "on");
+        card.classList.toggle("bad", clase === "bad");
+        $(`db-${k}-pill`).textContent = pill;
+      });
     }
 
     /* ---------- Métricas ---------- */
@@ -602,12 +721,15 @@
         ultimoEstadoGlobal = data;
 
         const m = data.mongodb;
-        mongoDocs = m.documentos_totales;
+        pintarClusters(m);
         apiViva();
         $("m-totales").textContent = m.documentos_totales;
         $("m-sinc").textContent = m.documentos_sincronizados;
         $("m-pend").textContent = Math.max(0, m.documentos_totales - m.documentos_sincronizados);
-        $("sub-mongo").textContent = `${m.documentos_totales} docs`;
+        const configurados = Object.values(m.clusters).filter(c => c.configurado).length;
+        $("m-clusters").textContent = `${m.clusters_activos} / ${configurados}`;
+        $("lista-clusters").innerHTML = Object.entries(m.clusters).map(([k, c]) =>
+          `<span class="tag ${k === "B" ? "b" : ""}">Cluster ${k}: <b>${c.configurado ? (c.conectado ? c.documentos + " docs" : "sin conexión") : "no configurado"}</b></span>`).join("");
         $("lista-colecciones").innerHTML = Object.entries(m.detalle_colecciones)
           .map(([k, v]) => `<span class="tag">${k}: <b>${v}</b></span>`).join("");
 
@@ -621,20 +743,14 @@
         $("lista-tablas").innerHTML = Object.entries(pg.detalle_tablas)
           .map(([k, v]) => `<span class="tag">${k}: <b>${v}</b></span>`).join("");
 
-        const mongoOn = m.documentos_totales > 0, pgOn = pg.registros_totales > 0;
-        $("db-mongo").classList.toggle("on", mongoOn);
-        $("db-mongo-pill").textContent = mongoOn ? "Activa" : "Inactiva";
+        const pgOn = pg.registros_totales > 0;
         $("db-pg").classList.toggle("on", pgOn);
         $("db-pg-pill").textContent = pgOn ? "Activa" : "Inactiva";
-
-        // MongoDB: verde si tiene datos y no hay un guardado en curso
-        if (S.mongo === "idle" && mongoOn) { S.mongo = "ok"; TXT.mongo = ""; }
-        if (S.mongo === "ok" && TXT.mongo === "Guardado") TXT.mongo = "";
 
         if (data.etl.ciclo_id > ultimoCicloETL) {
           if (ultimoCicloETL > 0) {
             logMsg("Sincronización ETL automática (60s) completada.");
-            flash("l-mongo-etl", 2000); flash("l-etl-pg", 2000);
+            flash("l-mA-etl", 2000); flash("l-mB-etl", 2000); flash("l-etl-pg", 2000);
           }
           ultimoCicloETL = data.etl.ciclo_id;
           etlErrorLocal = false;

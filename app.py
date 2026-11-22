@@ -1,11 +1,11 @@
 import os
 from flask import Flask, render_template, request, jsonify
-from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
 from dotenv import load_dotenv
 from bots_CRUD.rutas_bots import bots_bp
 from etl.rutas_etl import etl_bp
+from clusters import get_mongo_db, cluster_de_la_peticion, clusters_configurados
 
 # Carga las variables de entorno desde el archivo .env
 load_dotenv()
@@ -15,15 +15,41 @@ app.register_blueprint(bots_bp)
 app.register_blueprint(etl_bp)
 
 
-# Conexión a MongoDB Atlas usando tu variable de entorno
-mongo_uri = os.getenv("MONGO_URI")
-client = MongoClient(mongo_uri)
-db = client["veterinaria"]  
+class _SelectorDB:
+    """
+    Reemplaza al antiguo `db = client["veterinaria"]`.
+    Cada vez que una ruta usa `db.citas`, `db.tutores`, etc., decide a qué cluster
+    ir según el encabezado X-Bot-Id de la petición (bot4 -> cluster B, todo lo demás -> A).
+    Así ninguna ruta existente necesita cambiar.
+    """
+    def _real(self):
+        return get_mongo_db(cluster_de_la_peticion())
+
+    def __getattr__(self, nombre):
+        return getattr(self._real(), nombre)
+
+    def __getitem__(self, nombre):
+        return self._real()[nombre]
+
+
+db = _SelectorDB()
 
 
 @app.route('/')
 def index():
     return render_template('dashboard.html')
+
+
+@app.route('/api/cluster/ping', methods=['GET'])
+def ping_cluster():
+    """Para comprobar a qué cluster llega una petición:  curl -H "X-Bot-Id: bot4" .../api/cluster/ping"""
+    return jsonify({
+        "success": True,
+        "cluster": cluster_de_la_peticion(),
+        "clusters_configurados": clusters_configurados(),
+        "bot_id": request.headers.get("X-Bot-Id"),
+    }), 200
+
 
 # ==========================================
 # Rutas para obtener la informacion mostrada en el dashboard
@@ -58,7 +84,7 @@ def registrar_tutor():
     try:
         data = request.json
         ahora = datetime.utcnow()
-        
+
         tutor_doc = {
             "nombre": data.get("tutor_nombre"),
             "apellidos": data.get("tutor_apellidos", ""),
@@ -74,11 +100,11 @@ def registrar_tutor():
             "activo": True,
             "creadoEn": ahora
         }
-        
+
         tutor_id = db.tutores.insert_one(tutor_doc).inserted_id
 
         return jsonify({
-            "success": True, 
+            "success": True,
             "message": "Tutor registrado con éxito",
             "tutor_id": str(tutor_id)
         }), 201
@@ -92,7 +118,7 @@ def registrar_mascota():
     try:
         data = request.json
         ahora = datetime.utcnow()
-        
+
         # Validar campos mínimos obligatorios
         if not data.get("nombre") or not data.get("tutor_id") or not data.get("categoria_id"):
             return jsonify({"success": False, "error": "Faltan campos obligatorios (nombre, tutor o categoría)"}), 400
@@ -123,11 +149,11 @@ def registrar_mascota():
             "activa": True,
             "creadoEn": ahora
         }
-        
+
         mascota_id = db.mascotas.insert_one(mascota_doc).inserted_id
 
         return jsonify({
-            "success": True, 
+            "success": True,
             "message": "Mascota registrada con éxito",
             "mascota_id": str(mascota_id)
         }), 201
@@ -145,7 +171,7 @@ def atender_cita():
     try:
         data = request.json
         cita_id = data.get("cita_id")
-        
+
         cita = db.citas.find_one({"_id": ObjectId(cita_id)})
         if not cita:
             return jsonify({"success": False, "error": "Cita no encontrada"}), 404
@@ -220,20 +246,20 @@ def crear_cita_mostrador():
         # 2. Extraer nombres para mantener el documento independiente y legible
         tutor_nombre = data.get("tutor_nombre", "")
         mascota_nombre = data.get("mascota_nombre", "")
-        
+
         servicio_nombre = "Consulta general"
         if servicio_id:
             servicio = db.servicios.find_one({"_id": servicio_id})
             if servicio:
                 servicio_nombre = servicio.get("nombre", "Consulta")
 
-        # Definir tipo y estado respetando el enum del esquema de MongoDB ''''''''''''''''''''''''''''''''''''''
+        # Definir tipo y estado respetando el enum del esquema de MongoDB
         tipo_cita = data.get("tipo", "presencial").lower()
-        
+
         if tipo_cita == "reserva":
             estado_cita = "programada"  # Valor permitido por MongoDB para reservas
         else:
-            estado_cita = "confirmada"  # Valor permitido para citas presenciales''''''''''''''''''''''''''''''''
+            estado_cita = "confirmada"  # Valor permitido para citas presenciales
 
         # 4. Crear la Cita con la estructura exacta
         cita_doc = {
@@ -251,7 +277,7 @@ def crear_cita_mostrador():
             "estado": estado_cita,
             "creadoEn": ahora
         }
-        
+
         resultado = db.citas.insert_one(cita_doc)
 
         return jsonify({
@@ -276,19 +302,19 @@ def crear_cita_mostrador():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-    
+
 
 @app.route('/api/citas', methods=['GET'])
 def obtener_citas():
     try:
         citas = list(db.citas.find({}))
         resultado_final = []
-        
+
         for c in citas:
             # 1. Obtener nombre del tutor (si ya viene plano o buscarlo)
             tutor_nombre = c.get('tutorNombre')
             tutor_telefono = 'Sin teléfono'
-            
+
             # Siempre consultamos la colección tutores usando tutorId para asegurar el teléfono actualizado
             if c.get('tutorId'):
                 tutor = db.tutores.find_one({"_id": c.get('tutorId')})
@@ -339,14 +365,14 @@ def eliminar_cita(id_cita):
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-    
+
 # Agregar nueva consulta al historial (Requisito U)
 @app.route('/api/historial/agregar/<mascota_id>', methods=['POST'])
 def agregar_entrada_historial(mascota_id):
     try:
         data = request.json
         ahora = datetime.utcnow()
-        
+
         nueva_entrada = {
             "mascotaId": ObjectId(mascota_id),
             "usuarioId": ObjectId(data.get("usuario_id")), # Veterinario responsable
@@ -365,11 +391,12 @@ def agregar_entrada_historial(mascota_id):
 
         resultado_id = db.historial.insert_one(nueva_entrada).inserted_id
 
+        # CORREGIDO: antes el 201 estaba dentro del jsonify(...) y devolvía una lista [dict, 201]
         return jsonify({
-            "success": True, 
+            "success": True,
             "message": "Entrada clínica agregada con éxito al historial",
             "historial_id": str(resultado_id)
-        }, 201)
+        }), 201
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -379,14 +406,12 @@ def agregar_entrada_historial(mascota_id):
 # Apartado de administración del historial clínico
 # ==========================================
 
-#prueba rapida de rama creada
-
 # Búsqueda de pacientes por síntoma o diagnóstico (Requisito R)
 @app.route('/api/historial/buscar', methods=['GET'])
 def buscar_historial():
     try:
         termino = request.args.get('termino', '').strip()
-        
+
         filtro = {}
         if termino:
             filtro = {
@@ -449,11 +474,11 @@ def buscar_historial():
 def obtener_historial_por_mascota(mascota_id):
     print(f"\n==========================================")
     print(f"🟢 [API] ID de mascota recibido: {mascota_id}")
-    
+
     try:
         # Convertimos a ObjectId si es un ID válido de Mongo, o lo dejamos como string
         query_id = ObjectId(mascota_id) if len(mascota_id) == 24 else mascota_id
-        
+
         # 1. CORREGIDO: Usamos 'mascotaId' que es como realmente se guarda en la BD
         historiales = list(db.historial.find({'mascotaId': query_id}))
         print(f"📦 [API] Registros encontrados en MongoDB: {len(historiales)}")
@@ -500,7 +525,7 @@ def obtener_historial_por_mascota(mascota_id):
         print(f"==========================================\n")
 
         return jsonify({"success": True, "data": resultado_final}), 200
-        
+
     except Exception as e:
         print(f"🔴 [API ERROR]: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -519,13 +544,13 @@ def listar_pacientes():
             tutor_id_str = str(tutor["_id"])
             # Buscamos las mascotas asociadas a este tutor mediante ObjectId
             mascotas = list(db.mascotas.find({"tutorId": tutor["_id"], "activa": True}))
-            
+
             mascotas_formateadas = []
             for m in mascotas:
                 # Buscamos el nombre de la especie/categoría si está vinculada
                 cat = db.categorias.find_one({"_id": m.get("categoriaId")})
                 especie_nombre = cat["especie"] if cat else "General"
-                
+
                 mascotas_formateadas.append({
                     "_id": str(m["_id"]),
                     "nombre": m.get("nombre"),
@@ -579,7 +604,7 @@ def actualizar_servicio(id_servicio):
         if "tipo" in data: actualizacion["tipo"] = data["tipo"]
         if "precio" in data: actualizacion["precio"] = float(data["precio"])
         if "duracion_min" in data: actualizacion["duracionMin"] = int(data["duracion_min"])
-        
+
         resultado = db.servicios.update_one(
             {"_id": ObjectId(id_servicio)},
             {"$set": actualizacion}

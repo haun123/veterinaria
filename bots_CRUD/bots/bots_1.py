@@ -1,12 +1,11 @@
 from servicios.api_client import consultar, registrar
 from generadores.citas import generar_cita
 
-# <--- AGREGADO: Importar el avisador para la animación (con respaldo por si se corre suelto)
+# Avisador para la animación (módulo compartido, con respaldo por si se corre suelto)
 try:
-    from rutas_bots import registrar_evento_bot
+    from eventos_bots import registrar_evento_bot
 except ImportError:
     def registrar_evento_bot(*args, **kwargs): pass
-# <--- FIN AGREGADO
 
 def ejecutar_bot1(stop_event):
     print("\n========== BOT 1 INICIADO (Citas) ==========")
@@ -17,12 +16,12 @@ def ejecutar_bot1(stop_event):
         print(f"[BOT 1] Consulta inicial OK -> {len(categorias)} categorías, {len(servicios)} servicios.")
     except Exception as error:
         print(f"[BOT 1] No se pudo iniciar: {error}")
-        registrar_evento_bot("bot1", "error", detalle=str(error), error=True)  # <--- AGREGADO
+        registrar_evento_bot("bot1", "error", detalle=str(error), error=True)
         return
 
     if not categorias or not servicios:
         print("[BOT 1] Detenido: No hay categorías o servicios disponibles.")
-        registrar_evento_bot("bot1", "error", detalle="Sin categorías o servicios")  # <--- AGREGADO
+        registrar_evento_bot("bot1", "error", detalle="Sin categorías o servicios")
         return
 
     contador = 0
@@ -38,14 +37,14 @@ def ejecutar_bot1(stop_event):
                 f"Tutor: {datos_cita.get('tutor_nombre')} {datos_cita.get('tutor_apellidos')} | "
                 f"Mascota: {datos_cita.get('mascota_nombre')}"
             )
-            registrar_evento_bot("bot1", "enviando_api", operacion="cita", detalle=f"Cita #{contador}")  # <--- AGREGADO (Tramo Bot -> API)
+            registrar_evento_bot("bot1", "enviando_api", operacion="cita", detalle=f"Cita #{contador}")  # Tramo Bot -> API
             respuesta = registrar("crear_cita", datos_cita)
             exitosas += 1
-            registrar_evento_bot("bot1", "guardado_mongo", operacion="cita", detalle=f"Cita #{contador} guardada", exito=True)  # <--- AGREGADO (Tramo API -> MongoDB)
+            registrar_evento_bot("bot1", "guardado_mongo", operacion="cita", detalle=f"Cita #{contador} guardada", exito=True)  # Tramo API -> MongoDB
             print(f"[BOT 1] [GUARDADO] Cita #{contador} -> ID: {respuesta.get('id_generado', 'OK')}")
         except Exception as error:
             fallidas += 1
-            registrar_evento_bot("bot1", "error", operacion="cita", detalle=str(error), error=True)  # <--- AGREGADO
+            registrar_evento_bot("bot1", "error", operacion="cita", detalle=str(error), error=True)
             print(f"[BOT 1] [ERROR] Cita #{contador}: {error}")
 
         stop_event.wait(9)
