@@ -18,7 +18,7 @@ ESTADO_ETL = {
     "ciclo_id": 0,
 }
 
-INTERVALO_ETL_SEGUNDOS = 60
+INTERVALO_ETL_SEGUNDOS = 180
 
 _lock_etl = threading.Lock()
 _scheduler_iniciado = False
@@ -27,7 +27,7 @@ COLECCIONES = ["categorias", "servicios", "usuarios", "tutores", "mascotas", "ci
 # Estas colecciones se copian a ambos clusters con los mismos _id (sembrar_cluster_b.py);
 # para no contarlas doble se cuentan por _id único. citas e historial solo viven en un
 # cluster (según el bot que las creó), así que simplemente se suman.
-COLECCIONES_CATALOGO = ("categorias", "servicios", "usuarios", "tutores", "mascotas")
+COLECCIONES_CATALOGO = ("categorias", "servicios", "usuarios", "tutores", "mascotas", "historial")
 
 TABLAS = [
     "categorias", "servicios", "usuarios", "tutores", "tutor_direcciones",
