@@ -222,6 +222,7 @@ def _snapshot():
 @etl_bp.route("/estado", methods=["GET"])
 def endpoint_estado_general():
     """Devuelve todas las métricas en tiempo real de MongoDB (todos los clusters), Neon PostgreSQL y el ETL."""
+
     iniciar_scheduler_etl()
 
     snap = _snapshot()
